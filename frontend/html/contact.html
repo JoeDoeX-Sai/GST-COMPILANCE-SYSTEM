@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Get in Touch - GST Compliance System</title>
+  <link rel="stylesheet" href="/css/landing.css">
+  <style>
+    .page-content {
+      padding: 120px 5% 60px;
+      max-width: 800px;
+      margin: 0 auto;
+      min-height: calc(100vh - 100px);
+    }
+    .page-content h1 { font-size: 2.4rem; margin-bottom: 24px; color: var(--text); }
+    .page-content p { color: var(--text2); line-height: 1.7; margin-bottom: 32px; }
+    
+    .contact-form {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 32px;
+    }
+    .form-group { margin-bottom: 20px; }
+    .form-group label { display: block; font-size: 0.9rem; margin-bottom: 8px; color: var(--text2); }
+    .form-group input, .form-group textarea {
+      width: 100%;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 12px 16px;
+      border-radius: var(--radius-sm);
+      font-family: var(--font);
+      transition: border-color 0.2s;
+    }
+    .form-group input:focus, .form-group textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .form-group textarea { resize: vertical; min-height: 120px; }
+  </style>
+</head>
+<body>
+
+<!-- ── NAV ── -->
+<nav class="nav" id="nav">
+  <a href="/" class="nav-logo">
+    <div class="nav-logo-icon">G</div>
+    <div>
+      <div class="nav-logo-text">GST System</div>
+    </div>
+  </a>
+  <div class="nav-actions">
+    <a href="/login" class="btn btn-ghost">Login</a>
+    <a href="/login#signup" class="btn btn-primary" id="nav-cta">Create Account →</a>
+  </div>
+</nav>
+
+<!-- ── CONTENT ── -->
+<div class="page-content">
+  <h1>Get in Touch</h1>
+  <p>Whether you need help onboarding your business, have specific GST routing questions, or want to explore enterprise compliance packages, our team is here to assist.</p>
+
+  <div class="contact-form">
+    <form action="#" method="POST" onsubmit="event.preventDefault(); alert('Message sent successfully! Our team will reach out shortly.'); this.reset();">
+      <div class="form-group">
+        <label for="name">Full Name</label>
+        <input type="text" id="name" required placeholder="Enter your name">
+      </div>
+      <div class="form-group">
+        <label for="email">Work Email</label>
+        <input type="email" id="email" required placeholder="name@company.com">
+      </div>
+      <div class="form-group">
+        <label for="message">How can we help?</label>
+        <textarea id="message" required placeholder="Describe your compliance needs or query..."></textarea>
+      </div>
+      <button type="submit" class="btn btn-primary btn-lg" style="width: 100%; justify-content: center;">Send Message</button>
+    </form>
+  </div>
+
+  <p style="margin-top: 40px; text-align: center;"><a href="/" style="color: var(--text3); text-decoration: none; font-size: 0.9rem;">&larr; Back to Home</a></p>
+</div>
+
+<!-- ── FOOTER ── -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-logo">
+      <div class="footer-logo-icon">G</div>
+      <div>
+        <div class="footer-logo-text">GST System</div>
+        <div class="footer-logo-copy">© 2026</div>
+      </div>
+    </div>
+    <div class="footer-tagline">GST Compliance & Return Management Platform</div>
+    <div class="footer-links">
+      <a href="/privacy.html">Privacy</a>
+      <a href="/terms.html">Terms</a>
+      <a href="/support.html">Support</a>
+      <a href="/documentation.html">Documentation</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

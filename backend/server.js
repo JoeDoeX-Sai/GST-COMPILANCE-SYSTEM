@@ -16,7 +16,13 @@ const Chat       = require('./models/Chat');
 
 const app    = express();
 const server = http.createServer(app);
-const SECRET = process.env.JWT_SECRET || 'gst_secret';
+
+// Student project note: Using default secret for development
+// Set JWT_SECRET in .env for production
+const SECRET = process.env.JWT_SECRET || (() => {
+  console.warn('⚠️  Using default JWT secret - set JWT_SECRET in .env for production');
+  return 'gst_secret_dev_only';
+})();
 
 const io = new Server(server, {
   cors: { origin: '*', methods: ['GET','POST'] },
@@ -36,10 +42,11 @@ app.use(passport.session());
 app.use('/api/', rateLimit({ windowMs: 15*60*1000, max: 500, standardHeaders: true, legacyHeaders: false }));
 // Serve static assets but disable auto-serving index.html for '/'
 app.use(express.static(path.join(__dirname, '../frontend'), { index: false }));
+app.use(express.static(path.join(__dirname, '../frontend/html'), { index: false }));
 
 // Landing page is the entry point
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/landing.html'));
+  res.sendFile(path.join(__dirname, '../frontend/html/landing.html'));
 });
 
 app.use('/api/auth',       require('./routes/auth'));
@@ -91,7 +98,7 @@ app.get('/api/backup', auth, (req, res) => {
 app.set('io', io);
 
 app.get('*', (req, res) => {
-  if (!req.path.startsWith('/api')) res.sendFile(path.join(__dirname, '../frontend/index.html'));
+  if (!req.path.startsWith('/api')) res.sendFile(path.join(__dirname, '../frontend/html/index.html'));
 });
 
 app.use((err, req, res, next) => {
@@ -120,7 +127,7 @@ const BOT_REPLIES = [
   { keywords: ['export','download','pdf','excel','report'], message: 'Use the Export feature to download reports as PDF or Excel. 📥' },
   { keywords: ['party','supplier','customer','vendor'],     message: 'Manage all parties under the "Parties" section. 👥' },
   { keywords: ['reconcil'],                                 message: 'Reconcile purchase data with GSTR-2A/2B under the "Reconciliation" tab. ✅' },
-  { keywords: ['hello','hi','hey'],                         message: 'Hello! I am the GST Support Bot 🤖. I can help with invoices, returns, HSN codes, compliance, and more.' },
+  { keywords: ['hello','hi','hey'],                         message: 'Hello. This is an automated system response. I can help with invoices, returns, HSN codes, compliance, and more.' },
   { keywords: ['thank','ok','okay','got it'],               message: "You're welcome! Anything else I can help with? 😊" },
 ];
 
@@ -252,9 +259,9 @@ io.on('connection', socket => {
           const fail = botFails.get(data.room) || { count: 0 };
           const shouldPromptTicket = !resolved && fail.count >= 2;
           const botMsg = {
-            room: data.room, sender: 'bot', senderName: 'GST Support Bot 🤖',
+            room: data.room, sender: 'bot', senderName: 'System Auto-Reply',
             role: 'admin', userId: 'bot',
-            message: shouldPromptTicket ? "I've tried my best but couldn't resolve your query. No admin is online. Would you like to raise a support ticket?" : botMessage,
+            message: shouldPromptTicket ? "I couldn't fully resolve your query, and no support agent is currently online. Would you like to raise a support ticket?" : botMessage,
             type: shouldPromptTicket ? 'ticket_prompt' : 'text',
             read: true, created_at: new Date().toISOString(),
           };

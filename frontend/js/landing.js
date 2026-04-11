@@ -1,9 +1,11 @@
 // ── Nav scroll effect ──
 const nav = document.getElementById('nav');
 window.addEventListener('scroll', () => {
-  nav.style.background = window.scrollY > 40
-    ? 'rgba(15,17,23,0.97)'
-    : 'rgba(15,17,23,0.85)';
+  if (window.scrollY > 40) {
+    nav.classList.add('scrolled');
+  } else {
+    nav.classList.remove('scrolled');
+  }
 });
 
 // ── Mobile hamburger ──
@@ -52,16 +54,21 @@ if (barsEl) {
 const observer = new IntersectionObserver((entries) => {
   entries.forEach(entry => {
     if (entry.isIntersecting) {
-      entry.target.style.opacity = '1';
-      entry.target.style.transform = 'translateY(0)';
-      observer.unobserve(entry.target);
+      entry.target.classList.add('active');
     }
   });
-}, { threshold: 0.1 });
+}, { threshold: 0.1, rootMargin: "0px 0px -50px 0px" });
 
-document.querySelectorAll('.feature-card, .step, .module-card').forEach(el => {
-  el.style.opacity = '0';
-  el.style.transform = 'translateY(20px)';
-  el.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+document.querySelectorAll('.reveal').forEach(el => {
   observer.observe(el);
+});
+
+// ── FAQ Toggles ──
+const faqs = document.querySelectorAll('.faq-item');
+faqs.forEach(faq => {
+  faq.addEventListener('click', () => {
+    // Optional: close other FAQs when one opens
+    // faqs.forEach(other => { if (other !== faq) other.classList.remove('open'); });
+    faq.classList.toggle('open');
+  });
 });
