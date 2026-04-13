@@ -1,4 +1,7 @@
 require('dotenv').config();
+const validateEnv = require('./utils/validateEnv');
+validateEnv(); // crash early if required env vars are missing
+
 const express    = require('express');
 const cors       = require('cors');
 const helmet     = require('helmet');
@@ -12,9 +15,19 @@ const jwt        = require('jsonwebtoken');
 const { initDb } = require('./utils/db');
 const Chat       = require('./models/Chat');
 const Ticket     = require('./models/Ticket');
+const logger     = require('./utils/logger');
+const swaggerUi  = require('swagger-ui-express');
+const swaggerSpec = require('./utils/swagger');
 
 const app    = express();
 const server = http.createServer(app);
+const SECRET = process.env.JWT_SECRET || 'gst_secret';
+
+const io = new Server(server, {
+  cors: { origin: '*', methods: ['GET','POST'] },
+  pingTimeout: 60000,
+  pingInterval: 25000,
+});
 
 const SECRET = process.env.JWT_SECRET || 'gst_secret';
 
@@ -29,11 +42,15 @@ const io = new Server(server, {
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors());
 app.use(compression());
-app.use(morgan('dev'));
+// Route morgan through winston
+app.use(morgan('combined', { stream: { write: msg => logger.http(msg.trim()) } }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
-app.use('/api/', rateLimit({ windowMs:15*60*1000, max:500, standardHeaders:true, legacyHeaders:false }));
+app.use('/api/', rateLimit({ windowMs: 15*60*1000, max: 500, standardHeaders: true, legacyHeaders: false }));
 app.use(express.static(path.join(__dirname, '../frontend')));
+
+// Swagger API docs
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, { customSiteTitle: 'GST API Docs' }));
 
 /* ── Routes ─────────────────────────────────────────────────── */
 app.use('/api/auth',       require('./routes/auth'));
@@ -51,6 +68,7 @@ app.use('/api/export',     require('./routes/export'));
 app.use('/api/audit',      require('./routes/audit'));
 app.use('/api/users',      require('./routes/users'));
 app.use('/api/tickets',    require('./routes/tickets'));
+app.use('/api/payments',   require('./routes/payments'));
 
 const { auth } = require('./middleware/auth');
 
@@ -58,15 +76,14 @@ const { auth } = require('./middleware/auth');
 // GET /api/chat/rooms  — admin: all rooms with last message
 app.get('/api/chat/rooms', auth, async (req, res) => {
   try {
-    if (req.user.role !== 'admin')
-      return res.status(403).json({ success:false, message:'Admin only' });
+    if (req.user.role !== 'admin') return res.status(403).json({ success: false, message: 'Admin only' });
     const rooms = await Chat.aggregate([
-      { $sort:  { created_at: -1 } },
-      { $group: { _id:'$room', lastMessage:{ $first:'$message' }, lastTime:{ $first:'$created_at' }, senderName:{ $first:'$senderName' }, unread:{ $sum:{ $cond:[{ $and:[{ $eq:['$role','user'] },{ $eq:['$read',false] }] },1,0] } } } },
-      { $sort:  { lastTime: -1 } },
+      { $sort: { created_at: -1 } },
+      { $group: { _id: '$room', lastMessage: { $first: '$message' }, lastTime: { $first: '$created_at' }, senderName: { $first: '$senderName' }, unread: { $sum: { $cond: [{ $and: [{ $eq: ['$role','user'] }, { $eq: ['$read',false] }] }, 1, 0] } } } },
+      { $sort: { lastTime: -1 } },
     ]);
-    res.json({ success:true, data:rooms });
-  } catch(e) { res.status(500).json({ success:false, message:e.message }); }
+    res.json({ success: true, data: rooms });
+  } catch(e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
 // GET /api/chat/:room  — history
@@ -74,133 +91,105 @@ app.get('/api/chat/:room', auth, async (req, res) => {
   try {
     const room = req.params.room;
     const isOwner = room === `chat_${req.user._id}`;
-    if (req.user.role !== 'admin' && !isOwner)
-      return res.status(403).json({ success:false, message:'Access denied' });
-    const msgs = await Chat.find({ room }).sort({ created_at:1 }).limit(200).lean();
-    if (req.user.role === 'admin')
-      await Chat.updateMany({ room, role:'user', read:false }, { read:true }).catch(()=>{});
-    res.json({ success:true, data:msgs });
-  } catch(e) { res.status(500).json({ success:false, message:e.message }); }
+    if (req.user.role !== 'admin' && !isOwner) return res.status(403).json({ success: false, message: 'Access denied' });
+    const msgs = await Chat.find({ room }).sort({ created_at: 1 }).limit(200).lean();
+    if (req.user.role === 'admin') await Chat.updateMany({ room, role: 'user', read: false }, { read: true }).catch(() => {});
+    res.json({ success: true, data: msgs });
+  } catch(e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
-app.get('/api/backup', auth, (req,res) => {
-  if (req.user.role !== 'admin') return res.status(403).json({ success:false, message:'Admin only' });
-  res.json({ success:true, message:'Use mongodump. URI: '+(process.env.MONGO_URI||'mongodb://127.0.0.1:27017/gst_system') });
+app.get('/api/backup', auth, (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ success: false, message: 'Admin only' });
+  res.json({ success: true, message: 'Use mongodump. URI: ' + (process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/gst_system') });
 });
 
-// POST /api/tickets-notify — emit socket event after ticket created (called internally)
-// Ticket creation is already in routes/tickets.js; we expose an internal hook via io
 app.set('io', io);
 
-app.get('*', (req,res) => {
-  if (!req.path.startsWith('/api'))
-    res.sendFile(path.join(__dirname,'../frontend/index.html'));
+app.get('*', (req, res) => {
+  if (!req.path.startsWith('/api')) res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
 
-app.use((err,req,res,next) => {
-  console.error(err.stack);
-  res.status(err.status||500).json({ success:false, message:err.message||'Internal server error' });
+app.use((err, req, res, next) => {
+  logger.error(`${err.status || 500} - ${err.message} - ${req.originalUrl} - ${req.method}`);
+  res.status(err.status||500).json({ success: false, message: err.message||'Internal server error' });
 });
 
-/* ══════════════════════════════════════════════════════════════
-   SOCKET.IO  — Room-based messaging
-   Rooms:  user room  = "chat_<userId>"
-           admin room = "admin_watch"  (admins join this for broadcasts)
-══════════════════════════════════════════════════════════════ */
-// Track online users: socketId → { userId, userName, role, room }
-const online = new Map();
+// ── Socket.IO ─────────────────────────────────────────────────────────────────
+const online    = new Map(); // socketId → { userId, userName, role, room, activeRoom }
+const botFails  = new Map(); // room → { count, warned }
+const msgRates  = new Map(); // socketId → { count, resetAt }
+const botTimers = new Map(); // room → timeoutId
 
-// Bot auto-reply logic — returns { message, resolved }
+const MSG_MAX_LEN = 2000;
+const RATE_LIMIT  = 20;    // max messages per 10s
+const RATE_WINDOW = 10000;
+
+const BOT_REPLIES = [
+  { keywords: ['invoice','bill'],                           message: 'To manage invoices, go to the "Sales Invoices" tab. 📄' },
+  { keywords: ['return','gstr'],                            message: 'GST returns (GSTR-1, GSTR-3B) are under the "GST Returns" tab. 📊' },
+  { keywords: ['hsn','sac'],                                message: 'Search HSN/SAC codes using the "HSN Lookup" tool in the sidebar. 🔍' },
+  { keywords: ['password','login','account'],               message: 'To reset your password, go to Settings or contact the admin. 🔐' },
+  { keywords: ['compliance','deadline','due','overdue'],    message: 'Open the "Compliance" tab to see all upcoming and overdue GST deadlines. 📅' },
+  { keywords: ['purchase','expense'],                       message: 'Track all purchases under the "Purchases" section. 🧾' },
+  { keywords: ['tds'],                                      message: 'Manage TDS entries from the "TDS" module in the sidebar. 💰' },
+  { keywords: ['export','download','pdf','excel','report'], message: 'Use the Export feature to download reports as PDF or Excel. 📥' },
+  { keywords: ['party','supplier','customer','vendor'],     message: 'Manage all parties under the "Parties" section. 👥' },
+  { keywords: ['reconcil'],                                 message: 'Reconcile purchase data with GSTR-2A/2B under the "Reconciliation" tab. ✅' },
+  { keywords: ['hello','hi','hey'],                         message: 'Hello! I am the GST Support Bot 🤖. I can help with invoices, returns, HSN codes, compliance, and more.' },
+  { keywords: ['thank','ok','okay','got it'],               message: "You're welcome! Anything else I can help with? 😊" },
+];
+
 function botReply(userMessage) {
   const msg = (userMessage || '').toLowerCase();
-
-  if (msg.includes('invoice') || msg.includes('bill')) {
-    return { resolved: true,  message: 'To manage invoices, navigate to the "Sales Invoices" tab. You can create, edit, and review your tax invoices there. 📄' };
+  for (const { keywords, message } of BOT_REPLIES) {
+    if (keywords.some(k => msg.includes(k))) return { resolved: true, message };
   }
-  if (msg.includes('return') || msg.includes('gstr')) {
-    return { resolved: true,  message: 'GST returns (GSTR-1, GSTR-3B etc.) are under the "GST Returns" tab. Make sure your invoices are reconciled before filing. 📊' };
-  }
-  if (msg.includes('hsn') || msg.includes('sac')) {
-    return { resolved: true,  message: 'Search for HSN/SAC codes and GST rates anytime using the "HSN Lookup" tool in the sidebar. 🔍' };
-  }
-  if (msg.includes('password') || msg.includes('login') || msg.includes('account')) {
-    return { resolved: true,  message: 'To reset your password, go to Profile Settings or contact the admin for a reset link. 🔐' };
-  }
-  if (msg.includes('compliance') || msg.includes('calendar') || msg.includes('due') || msg.includes('overdue') || msg.includes('deadline')) {
-    return { resolved: true,  message: 'Open the "Compliance" tab to see all your upcoming, pending, and overdue GST filing deadlines. 📅' };
-  }
-  if (msg.includes('purchase') || msg.includes('expense')) {
-    return { resolved: true,  message: 'Track all your purchases and expenses under the "Purchases" section in the sidebar. 🧾' };
-  }
-  if (msg.includes('tds') || msg.includes('tax deducted')) {
-    return { resolved: true,  message: 'You can manage TDS entries and reports from the "TDS" module in the sidebar. 💰' };
-  }
-  if (msg.includes('export') || msg.includes('download') || msg.includes('report') || msg.includes('pdf') || msg.includes('excel')) {
-    return { resolved: true,  message: 'Use the "Export" feature (available on most pages) to download reports as PDF or Excel. 📥' };
-  }
-  if (msg.includes('party') || msg.includes('supplier') || msg.includes('customer') || msg.includes('vendor')) {
-    return { resolved: true,  message: 'Manage all your parties (customers, suppliers, vendors) under the "Parties" section. 👥' };
-  }
-  if (msg.includes('reconcil')) {
-    return { resolved: true,  message: 'Reconcile your purchase data with GSTR-2A/2B under the "Reconciliation" tab. It helps identify mismatches before filing. ✅' };
-  }
-  if (msg.includes('hello') || msg.includes('hi') || msg.includes('hey') || msg === 'hello' || msg === 'hi') {
-    return { resolved: true,  message: 'Hello! I am the GST Support Bot 🤖. I can help with invoices, GST returns, HSN codes, compliance calendars, and more. What do you need help with?' };
-  }
-  if (msg.includes('thank') || msg.includes('thanks') || msg.includes('ok') || msg.includes('okay') || msg.includes('got it')) {
-    return { resolved: true, message: 'You\'re welcome! Is there anything else I can help you with? 😊' };
-  }
-
-  // Bot could not resolve
-  return { resolved: false, message: "I'm sorry, I couldn't fully understand your query. I'll try once more — please describe your issue in different words, or I can raise a support ticket for you." };
+  return { resolved: false, message: "I couldn't fully understand your query. Please describe differently, or I can raise a support ticket for you." };
 }
-
-// Track bot fail counts per room: room → { count, warned }
-const botFails = new Map();
 
 function broadcastOnlineUsers() {
   const users = [];
-  online.forEach((d, sid) => {
-    if (d.role !== 'admin') users.push({ socketId:sid, userId:d.userId, userName:d.userName, room:d.room });
-  });
+  online.forEach((d, sid) => { if (d.role !== 'admin') users.push({ socketId: sid, userId: d.userId, userName: d.userName, room: d.room }); });
   io.to('admin_watch').emit('onlineUsers', users);
 }
 
-// Check if any admin socket is actively watching a specific room
 function adminWatchingRoom(room) {
-  let found = false;
-  online.forEach(d => { if (d.role === 'admin' && d.activeRoom === room) found = true; });
-  return found;
+  for (const d of online.values()) { if (d.role === 'admin' && d.activeRoom === room) return true; }
+  return false;
+}
+
+function checkRateLimit(socketId) {
+  const now = Date.now();
+  const r = msgRates.get(socketId) || { count: 0, resetAt: now + RATE_WINDOW };
+  if (now > r.resetAt) { r.count = 0; r.resetAt = now + RATE_WINDOW; }
+  r.count++;
+  msgRates.set(socketId, r);
+  return r.count <= RATE_LIMIT;
 }
 
 io.on('connection', socket => {
-  console.log('🔌 Socket connected:', socket.id);
 
-  /* ── Authenticate ── */
   socket.on('authenticate', data => {
     try {
-      if (!data || !data.token) throw new Error('No token');
+      if (!data?.token) throw new Error('No token');
       const decoded  = jwt.verify(data.token, SECRET);
-      const userId   = String(decoded.id || decoded._id || data.userId || '');
-      const userName = data.userName || decoded.name || 'User';
-      const role     = decoded.role  || data.role   || 'user';
-
-      online.set(socket.id, { userId, userName, role, room:null, activeRoom:null });
-
+      const userId   = String(decoded.id || decoded._id || '');
+      const userName = (data.userName || 'User').substring(0, 60);
+      const role     = decoded.role || 'user'; // from JWT only, never trust client
+      online.set(socket.id, { userId, userName, role, room: null, activeRoom: null });
       if (role === 'admin') {
         socket.join('admin_watch');
-        socket.emit('authenticated', { ok:true, role:'admin' });
-
-        // Send existing rooms to this admin
+        socket.emit('authenticated', { ok: true, role: 'admin' });
         Chat.aggregate([
-          { $sort:  { created_at: -1 } },
-          { $group: { _id:'$room', lastMessage:{ $first:'$message' }, lastTime:{ $first:'$created_at' }, senderName:{ $first:'$senderName' }, unread:{ $sum:{ $cond:[{ $and:[{ $eq:['$role','user'] },{ $eq:['$read',false] }] },1,0] } } } },
-          { $sort:  { lastTime: -1 } },
-        ]).then(rooms => socket.emit('roomList', rooms)).catch(()=>{});
+          { $sort: { created_at: -1 } },
+          { $group: { _id: '$room', lastMessage: { $first: '$message' }, lastTime: { $first: '$created_at' }, senderName: { $first: '$senderName' }, unread: { $sum: { $cond: [{ $and: [{ $eq: ['$role','user'] }, { $eq: ['$read',false] }] }, 1, 0] } } } },
+          { $sort: { lastTime: -1 } },
+        ]).then(rooms => socket.emit('roomList', rooms)).catch(() => {});
       } else {
         const room = `chat_${userId}`;
         online.get(socket.id).room = room;
         socket.join(room);
+<<<<<<< HEAD
         socket.emit('authenticated', { ok:true, role:'user', room });
         broadcastOnlineUsers();
         console.log(`✅ User authenticated: ${userName} (${userId}) → room ${room}`);
@@ -262,12 +251,81 @@ io.on('connection', socket => {
           const { message: botMessage, resolved } = botReply(payload.message);
 
           // Track failures per room
+        socket.emit('authenticated', { ok: true, role: 'user', room });
+        broadcastOnlineUsers();
+      }
+    } catch(e) { socket.emit('authenticated', { ok: false, error: 'Invalid token' }); }
+  });
+
+  socket.on('joinRoom', room => {
+    const d = online.get(socket.id);
+    if (!d || d.role !== 'admin') return; // only admins can join arbitrary rooms
+    if (d.activeRoom) socket.leave(d.activeRoom);
+    d.activeRoom = room;
+    socket.join(room);
+  });
+
+  socket.on('leaveRoom', room => {
+    const d = online.get(socket.id);
+    if (d && d.activeRoom === room) { d.activeRoom = null; socket.leave(room); }
+  });
+
+  socket.on('sendMessage', async data => {
+    const d = online.get(socket.id);
+    if (!d) return;
+
+    // Rate limit check
+    if (!checkRateLimit(socket.id)) {
+      socket.emit('error', { message: 'Too many messages. Please slow down.' });
+      return;
+    }
+
+    // Validate and sanitize
+    const rawMsg = String(data?.message || '').trim();
+    if (!data?.room || !rawMsg) return;
+    const message = rawMsg.substring(0, MSG_MAX_LEN);
+
+    // Role from server state only — never from client data
+    const role = d.role;
+
+    // Users can only send to their own room
+    if (role !== 'admin' && data.room !== d.room) return;
+
+    const payload = {
+      room: data.room, sender: d.userId, senderName: d.userName,
+      role, userId: d.userId, message, read: false,
+      created_at: new Date().toISOString(),
+    };
+
+    try {
+      const saved = await Chat.create(payload);
+      payload._id = String(saved._id);
+    } catch(e) {
+      console.error('Chat save error:', e.message);
+      socket.emit('error', { message: 'Failed to send message. Please try again.' });
+      return;
+    }
+
+    io.to(data.room).emit('receiveMessage', payload);
+
+    if (role !== 'admin') {
+      io.to('admin_watch').emit('newUserMessage', { room: data.room, userId: d.userId, senderName: d.userName, lastMessage: message, lastTime: payload.created_at });
+
+      // Cancel any pending bot reply (user sent another message)
+      if (botTimers.has(data.room)) {
+        clearTimeout(botTimers.get(data.room));
+        botTimers.delete(data.room);
+      }
+
+      if (!adminWatchingRoom(data.room)) {
+        const timer = setTimeout(async () => {
+          botTimers.delete(data.room);
+          const { message: botMessage, resolved } = botReply(message);
           if (!resolved) {
             const fail = botFails.get(data.room) || { count: 0, warned: false };
             fail.count++;
             botFails.set(data.room, fail);
           } else {
-            // Reset fail count if bot successfully resolved
             botFails.delete(data.room);
           }
 
@@ -281,7 +339,7 @@ io.on('connection', socket => {
             role:        'admin',
             userId:      'bot',
             message:     shouldPromptTicket
-              ? "I've tried my best but I'm unable to resolve your query right now. No admin is currently online. Would you like to raise a support ticket? An admin will review it and get back to you."
+              ? "I've tried my best but couldn't resolve your query. No admin is online. Would you like to raise a support ticket?"
               : botMessage,
             type:        shouldPromptTicket ? 'ticket_prompt' : 'text',
             read:        true,
@@ -289,13 +347,11 @@ io.on('connection', socket => {
           };
 
           if (shouldPromptTicket) {
-            // Reset so it doesn't keep prompting every message
             botFails.set(data.room, { count: 0, warned: true });
           }
 
           try { await Chat.create(botMsg); } catch(e) {}
           io.to(data.room).emit('receiveMessage', botMsg);
-          // Also notify admin panel
           io.to('admin_watch').emit('newUserMessage', {
             room:       data.room,
             senderName: botMsg.senderName,
@@ -303,31 +359,43 @@ io.on('connection', socket => {
             lastTime:   botMsg.created_at,
           });
         }, 1500);
+        botTimers.set(data.room, timer);
       }
     }
 
     console.log(`💬 [${data.room}] ${payload.senderName}: ${payload.message.substring(0,60)}`);
   });
 
-  /* ── Typing ── */
-  socket.on('typing',     data => { if (data?.room) socket.to(data.room).emit('typing',     { room:data.room, sender:data.sender }); });
-  socket.on('stopTyping', data => { if (data?.room) socket.to(data.room).emit('stopTyping', { room:data.room }); });
-
-  /* ── Mark read ── */
-  socket.on('markRead', async room => {
-    try { await Chat.updateMany({ room, role:'user', read:false }, { read:true }); } catch(e) {}
+  socket.on('typing', data => {
+    const d = online.get(socket.id);
+    if (!d || !data?.room) return;
+    if (d.role !== 'admin' && data.room !== d.room) return;
+    socket.to(data.room).emit('typing', { room: data.room, sender: d.userName });
   });
 
-  /* ── Disconnect ── */
+  socket.on('stopTyping', data => {
+    const d = online.get(socket.id);
+    if (!d || !data?.room) return;
+    socket.to(data.room).emit('stopTyping', { room: data.room });
+  });
+
+  socket.on('markRead', async room => {
+    const d = online.get(socket.id);
+    if (!d || d.role !== 'admin') return; 
+    try { await Chat.updateMany({ room, role: 'user', read: false }, { read: true }); } catch(e) {}
+  });
+
   socket.on('disconnect', () => {
     const d = online.get(socket.id);
     console.log(`❌ Disconnected: ${d?.userName || socket.id}`);
     online.delete(socket.id);
+    msgRates.delete(socket.id);
+    if (d?.room) botFails.delete(d.room);
     broadcastOnlineUsers();
   });
 });
 
-/* ── Start ──────────────────────────────────────────────────── */
+// ── Start ─────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
 initDb().then(() => {
   try {
@@ -336,10 +404,11 @@ initDb().then(() => {
     cron.schedule('0 6 * * *', updateOverdueCompliance);
   } catch(e) {}
   server.listen(PORT, () => {
-    console.log(`\n🚀 GST System → http://localhost:${PORT}`);
-    console.log(`📧 Login: admin@gst.local  🔑 Password: Admin@123\n`);
+    logger.info(`🚀 GST System running → http://localhost:${PORT}`);
+    logger.info(`📚 API Docs → http://localhost:${PORT}/api-docs`);
+    logger.info(`📧 Login: admin@gst.local  🔑 Password: Admin@123`);
   });
 }).catch(err => {
-  console.error('❌ DB init failed:', err.message);
+  logger.error('❌ Failed to initialize database: ' + err.message);
   process.exit(1);
 });
