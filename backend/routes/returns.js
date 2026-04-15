@@ -1,8 +1,10 @@
 const router = require('express').Router();
 const { Return, Invoice, Purchase } = require('../utils/db');
-const { auth, requireRole } = require('../middleware/auth');
+const { auth, requireRole, requireBizAccess } = require('../middleware/auth');
 
-router.get('/', auth, async (req, res) => {
+function norm(doc) { if (doc && doc._id) doc.id = String(doc._id); return doc; }
+
+router.get('/', auth, requireBizAccess, async (req, res) => {
   try {
     const { business_id, return_type, period } = req.query;
     if (!business_id) return res.status(400).json({ success: false, message: 'business_id required' });
@@ -10,11 +12,12 @@ router.get('/', auth, async (req, res) => {
     if (return_type) filter.return_type = return_type;
     if (period) filter.period = period;
     const data = await Return.find(filter).sort({ period: -1 }).lean();
+    data.forEach(norm);
     res.json({ success: true, data });
   } catch(e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
-router.post('/prepare', auth, requireRole('admin','accountant'), async (req, res) => {
+router.post('/prepare', auth, requireRole('admin','accountant'), requireBizAccess, async (req, res) => {
   try {
     const { business_id, return_type, period } = req.body;
     if (!business_id || !return_type || !period) return res.status(400).json({ success: false, message: 'Required fields missing' });
@@ -39,12 +42,12 @@ router.post('/prepare', auth, requireRole('admin','accountant'), async (req, res
     }
 
     const summary = { total_taxable: totals.taxable||0, total_cgst: totals.cgst||0, total_sgst: totals.sgst||0, total_igst: totals.igst||0, total_cess: totals.cess||0, itc_claimed: data.itc_claimed||0, net_liability: data.net_payable||0 };
-    await Return.findOneAndUpdate(
+    const ret = await Return.findOneAndUpdate(
       { business_id, return_type, period },
       { ...summary, status: 'prepared', json_data: JSON.stringify(data), created_by: req.user._id },
       { upsert: true, new: true }
     );
-    res.json({ success: true, data: { ...summary, details: data }, message: 'Return prepared successfully' });
+    res.json({ success: true, data: { id: String(ret._id), ...summary, details: data }, message: 'Return prepared successfully' });
   } catch(e) { res.status(500).json({ success: false, message: e.message }); }
 });
 

@@ -10,7 +10,7 @@ Pages.register('users', async () => {
   </div>
   <div class="modal-overlay" id="user-modal">
     <div class="modal modal-sm">
-      <div class="modal-header"><div class="modal-title" id="user-modal-title">Add User</div><button class="btn btn-sm btn-secondary" onclick="closeModal('user-modal')">✕</button></div>
+      <div class="modal-header"><div class="modal-title" id="user-modal-title">Add User</div><button class="btn btn-sm btn-secondary btn-icon" onclick="closeModal('user-modal')" aria-label="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
       <div class="modal-body">
         <div class="form-grid">
           <div class="form-group full"><label>Full Name *</label><input id="usr-name" placeholder="John Doe"></div>
@@ -24,7 +24,7 @@ Pages.register('users', async () => {
             </select>
           </div>
         </div>
-        <div class="alert alert-info mt-3"><span>ℹ</span><span><b>Admin:</b> Full access &nbsp;|&nbsp; <b>Accountant:</b> Create/edit invoices &nbsp;|&nbsp; <b>Viewer:</b> Read only</span></div>
+        <div class="alert alert-info mt-3"><b>Admin:</b> Full system access &nbsp;|&nbsp; <b>Accountant:</b> Create and edit records &nbsp;|&nbsp; <b>Viewer:</b> Read-only access</div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="closeModal('user-modal')">Cancel</button>
@@ -86,17 +86,28 @@ window._bizForm = {};
 
 Pages.register('businesses', async () => {
   window._bizForm = {};
+
+  // Double-check: non-admins should never reach here due to RBAC guard,
+  // but if they do (e.g. direct function call), show access denied.
+  if (!RBAC.isAdmin()) {
+    Pages.navigate('businesses'); // triggers the RBAC guard in navigate()
+    return;
+  }
+
   document.getElementById('page-content').innerHTML = `
   <div class="card">
     <div class="card-header">
       <div><div class="card-title">Businesses</div><div class="card-sub">Manage GSTINs and entities</div></div>
-      <button class="btn btn-primary" onclick="openBizModal()">+ Add Business</button>
+      <button class="btn btn-primary" onclick="openBizModal()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add Business
+      </button>
     </div>
     <div id="biz-table" class="table-wrap"></div>
   </div>
   <div class="modal-overlay" id="biz-modal">
     <div class="modal modal-sm">
-      <div class="modal-header"><div class="modal-title" id="biz-modal-title">Add Business</div><button class="btn btn-sm btn-secondary" onclick="closeModal('biz-modal')">✕</button></div>
+      <div class="modal-header"><div class="modal-title" id="biz-modal-title">Add Business</div><button class="btn btn-sm btn-secondary btn-icon" onclick="closeModal('biz-modal')" aria-label="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
       <div class="modal-body">
         <div class="form-grid">
           <div class="form-group full">
@@ -168,7 +179,7 @@ async function loadBusinesses() {
     const res = await API.get('/businesses');
     const el = document.getElementById('biz-table');
     if (!res.data?.length) {
-      el.innerHTML = '<div class="empty-state" style="padding:32px"><div class="empty-icon">🏢</div><div class="empty-title">No businesses yet</div><div class="empty-sub">Add your first business to get started</div></div>';
+      el.innerHTML = '<div class="empty-state" style="padding:32px"><div class="empty-title">No businesses registered</div><div class="empty-sub">Add your first business to get started.</div></div>';
       return;
     }
     window._loadedBusinesses = res.data;
@@ -180,15 +191,15 @@ async function loadBusinesses() {
       <td>${STATE_CODES[b.state_code] || b.state_code}</td>
       <td><span class="badge badge-blue">${b.registration_type}</span></td>
       <td>
-        <button class="btn btn-xs btn-secondary" onclick="switchBusiness(${b.id})">Switch to</button>
-        <button class="btn btn-xs btn-secondary" onclick="openBizModalById(${b.id})">Edit</button>
+        <button class="btn btn-xs btn-secondary" onclick="switchBusiness('${b.id}')">Switch</button>
+        <button class="btn btn-xs btn-secondary" onclick="openBizModalById('${b.id}')">Edit</button>
       </td>
     </tr>`).join('')}</tbody></table>`;
   } catch (e) { toast(e.message, 'error'); }
 }
 
 function openBizModalById(id) {
-  const b = window._loadedBusinesses.find(x => x.id === id);
+  const b = window._loadedBusinesses.find(x => String(x.id || x._id) === String(id));
   if (b) openBizModal(b);
 }
 
@@ -227,14 +238,14 @@ function validateBizGSTIN() {
   if (!v) { msg.textContent = ''; return; }
   if (validateGSTIN(v)) {
     const sc = v.substring(0, 2);
-    msg.textContent = '✓ Valid · State: ' + (STATE_CODES[sc] || sc);
+    msg.textContent = 'Valid GSTIN — State: ' + (STATE_CODES[sc] || sc);
     msg.className = 'text-xs mt-2 text-green';
     window._bizForm.state_code = sc;
     // Also update the dropdown visually
     const sel = document.getElementById('biz-state');
     if (sel) sel.value = sc;
   } else {
-    msg.textContent = '✗ Invalid — must be 15 chars e.g. 29AAAPL1234F1Z5';
+    msg.textContent = 'Invalid GSTIN — expected format: 29AAAPL1234F1Z5';
     msg.className = 'text-xs mt-2 text-red';
   }
 }
@@ -274,98 +285,51 @@ async function saveBusiness() {
     const payload = { gstin, legal_name, trade_name, state_code: finalState, registration_type, pan, email, phone, address };
     if (f.id) {
       await API.put(`/businesses/${f.id}`, payload);
-      toast('Business updated successfully!', 'success');
+      toast('Business updated successfully', 'success');
     } else {
       await API.post('/businesses', payload);
-      toast('Business added successfully!', 'success');
+      toast('Business added successfully', 'success');
     }
     closeModal('biz-modal');
     window._bizForm = {};
+
+    // Refresh the full business list from server and update App state
     try {
       const me = await API.get('/auth/me');
       App.businesses = me.businesses || [];
+      // Auto-select first business if none selected
       if (!App.currentBiz && App.businesses.length > 0) {
         App.currentBiz = App.businesses[0];
-        localStorage.setItem('gst_biz_id', App.currentBiz.id);
-        App.renderSidebar();
+        localStorage.setItem('gst_biz_id', String(App.currentBiz.id || App.currentBiz._id));
       }
-    } catch (e) { }
+      // If we just edited the current business, refresh it
+      if (App.currentBiz && f.id && String(App.currentBiz.id || App.currentBiz._id) === String(f.id)) {
+        App.currentBiz = App.businesses.find(b => String(b.id || b._id) === String(f.id)) || App.currentBiz;
+        localStorage.setItem('gst_biz_id', String(App.currentBiz.id || App.currentBiz._id));
+      }
+      App.renderSidebar();
+    } catch (e) { /* non-fatal */ }
+
     loadBusinesses();
   } catch (e) {
     toast(e.message || 'Failed to save business', 'error');
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Save Business'; }
+    if (btn) { btn.disabled = false; btn.textContent = f.id ? 'Update Business' : 'Save Business'; }
   }
 }
 
 async function switchBusiness(id) {
   try {
-    App.currentBiz = App.businesses.find(b => String(b.id || b._id) === String(id)) || (await API.get(`/businesses/${id}`)).data;
-    localStorage.setItem('gst_biz_id', id);
+    const sid = String(id);
+    App.currentBiz = App.businesses.find(b => String(b.id || b._id) === sid)
+      || (await API.get(`/businesses/${sid}`)).data;
+    localStorage.setItem('gst_biz_id', sid);
     App.renderSidebar();
     toast(`Switched to ${App.currentBiz.trade_name || App.currentBiz.legal_name}`, 'success');
     Pages.navigate('dashboard');
   } catch (e) { toast(e.message, 'error'); }
 }
 
-// ─── SETTINGS PAGE ────────────────────────────────────────────────────────────
-Pages.register('settings', () => {
-  document.getElementById('page-content').innerHTML = `
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:900px">
-    <div class="card">
-      <div class="card-header"><div class="card-title">Change Password</div></div>
-      <div class="card-body">
-        <div class="form-grid">
-          <div class="form-group full"><label>Current Password</label><input id="set-cur-pw" type="password"></div>
-          <div class="form-group full"><label>New Password</label><input id="set-new-pw" type="password"></div>
-          <div class="form-group full"><label>Confirm New Password</label><input id="set-conf-pw" type="password"></div>
-        </div>
-        <button class="btn btn-primary mt-3" onclick="changePassword()">Update Password</button>
-      </div>
-    </div>
-    <div>
-      <div class="card mb-4">
-        <div class="card-header"><div class="card-title">Data Management</div></div>
-        <div class="card-body">
-          <p style="color:var(--text2);font-size:0.85rem;margin-bottom:16px">Download a full backup of your database. This includes all businesses, invoices, parties, and settings.</p>
-          <button class="btn btn-secondary w-full" onclick="downloadBackup()">💾 Download Database Backup</button>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-header"><div class="card-title">System Info</div></div>
-        <div class="card-body" style="font-size:0.85rem;color:var(--text2)">
-          <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span>Version</span><span class="font-mono text-accent">2.0.0</span></div>
-          <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span>User</span><span>${App.user?.name || '—'}</span></div>
-          <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span>Role</span><span class="badge badge-blue">${App.user?.role || '—'}</span></div>
-          <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span>Businesses</span><span>${App.businesses?.length || 0}</span></div>
-          <div style="display:flex;justify-content:space-between"><span>Database</span><span class="font-mono">SQLite</span></div>
-        </div>
-      </div>
-    </div>
-  </div>`;
-});
-
-async function changePassword() {
-  const cur = document.getElementById('set-cur-pw').value;
-  const nw = document.getElementById('set-new-pw').value;
-  const conf = document.getElementById('set-conf-pw').value;
-  if (nw !== conf) { toast('Passwords do not match', 'error'); return; }
-  try {
-    await API.post('/auth/change-password', { currentPassword: cur, newPassword: nw });
-    toast('Password changed successfully', 'success');
-    document.getElementById('set-cur-pw').value = '';
-    document.getElementById('set-new-pw').value = '';
-    document.getElementById('set-conf-pw').value = '';
-  } catch (e) { toast(e.message, 'error'); }
-}
-
-function downloadBackup() {
-  const token = localStorage.getItem('gst_token');
-  const a = document.createElement('a');
-  a.href = `/api/backup?token=${token}`;
-  a.download = `gst_backup_${new Date().toISOString().split('T')[0]}.db`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  toast('Downloading backup...', 'info');
-}
+// ─── SETTINGS PAGE — moved to Profile Panel (profile.js) ─────────────────────
+// Settings is now accessible via the Account panel (bottom-left profile trigger).
+// The changePassword, downloadBackup functions are handled inside ProfilePanel.

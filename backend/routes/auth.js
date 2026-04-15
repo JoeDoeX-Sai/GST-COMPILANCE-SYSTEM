@@ -34,6 +34,31 @@ router.post('/login', [
   } catch(e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
+// ── Profile — GET ─────────────────────────────────────────────────────────────
+router.get('/profile', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select('name email phone role active created_at').lean();
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    res.json({ success: true, data: { ...user, id: String(user._id) } });
+  } catch(e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+// ── Profile — PUT ─────────────────────────────────────────────────────────────
+router.put('/profile', auth, [
+  body('name').trim().notEmpty().withMessage('Name is required'),
+  body('email').trim().isEmail().withMessage('Valid email is required'),
+  body('phone').optional({ checkFalsy: true }).trim(),
+  validate
+], async (req, res) => {
+  try {
+    const { name, email, phone } = req.body;
+    const existing = await User.findOne({ email: email.toLowerCase(), _id: { $ne: req.user._id } });
+    if (existing) return res.status(400).json({ success: false, message: 'Email is already in use by another account' });
+    await User.findByIdAndUpdate(req.user._id, { name: name.trim(), email: email.toLowerCase().trim(), phone: phone?.trim() || '' });
+    res.json({ success: true, message: 'Profile updated successfully' });
+  } catch(e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
 // ── Me ────────────────────────────────────────────────────────────────────────
 router.get('/me', auth, async (req, res) => {
   const ubLinks = await UserBusiness.find({ user_id: req.user._id });

@@ -13,6 +13,7 @@ const session    = require('express-session');
 const passport   = require('./utils/passport');
 const { initDb } = require('./utils/db');
 const Chat       = require('./models/Chat');
+const { generateGstResponse } = require('./utils/ai');
 
 const app    = express();
 const server = http.createServer(app);
@@ -115,29 +116,6 @@ const botTimers = new Map(); // room → timeoutId
 const MSG_MAX_LEN = 2000;
 const RATE_LIMIT  = 20;    // max messages per 10s
 const RATE_WINDOW = 10000;
-
-const BOT_REPLIES = [
-  { keywords: ['invoice','bill'],                           message: 'To manage invoices, go to the "Sales Invoices" tab. 📄' },
-  { keywords: ['return','gstr'],                            message: 'GST returns (GSTR-1, GSTR-3B) are under the "GST Returns" tab. 📊' },
-  { keywords: ['hsn','sac'],                                message: 'Search HSN/SAC codes using the "HSN Lookup" tool in the sidebar. 🔍' },
-  { keywords: ['password','login','account'],               message: 'To reset your password, go to Settings or contact the admin. 🔐' },
-  { keywords: ['compliance','deadline','due','overdue'],    message: 'Open the "Compliance" tab to see all upcoming and overdue GST deadlines. 📅' },
-  { keywords: ['purchase','expense'],                       message: 'Track all purchases under the "Purchases" section. 🧾' },
-  { keywords: ['tds'],                                      message: 'Manage TDS entries from the "TDS" module in the sidebar. 💰' },
-  { keywords: ['export','download','pdf','excel','report'], message: 'Use the Export feature to download reports as PDF or Excel. 📥' },
-  { keywords: ['party','supplier','customer','vendor'],     message: 'Manage all parties under the "Parties" section. 👥' },
-  { keywords: ['reconcil'],                                 message: 'Reconcile purchase data with GSTR-2A/2B under the "Reconciliation" tab. ✅' },
-  { keywords: ['hello','hi','hey'],                         message: 'Hello. This is an automated system response. I can help with invoices, returns, HSN codes, compliance, and more.' },
-  { keywords: ['thank','ok','okay','got it'],               message: "You're welcome! Anything else I can help with? 😊" },
-];
-
-function botReply(userMessage) {
-  const msg = (userMessage || '').toLowerCase();
-  for (const { keywords, message } of BOT_REPLIES) {
-    if (keywords.some(k => msg.includes(k))) return { resolved: true, message };
-  }
-  return { resolved: false, message: "I couldn't fully understand your query. Please describe differently, or I can raise a support ticket for you." };
-}
 
 function broadcastOnlineUsers() {
   const users = [];
@@ -250,7 +228,15 @@ io.on('connection', socket => {
       if (!adminWatchingRoom(data.room)) {
         const timer = setTimeout(async () => {
           botTimers.delete(data.room);
-          const { message: botMessage, resolved } = botReply(message);
+          
+          let chatContext = [];
+          try {
+            chatContext = await Chat.find({ room: data.room }).sort({ created_at: -1 }).limit(10).lean();
+            chatContext.reverse(); // oldest to newest
+          } catch(err) { console.error('Failed to load chat history for AI:', err.message); }
+
+          const { message: botMessage, resolved } = await generateGstResponse(message, chatContext);
+
           if (!resolved) {
             const fail = botFails.get(data.room) || { count: 0, warned: false };
             fail.count++;
@@ -312,9 +298,8 @@ initDb().then(() => {
     cron.schedule('0 6 * * *', updateOverdueCompliance);
   } catch(e) {}
   server.listen(PORT, () => {
-    console.log(`\n🚀 GST System running → http://localhost:${PORT}`);
-    console.log(`📧 Login: admin@gst.local`);
-    console.log(`🔑 Password: Admin@123\n`);
+    console.log(`GST System running at http://localhost:${PORT}`);
+    console.log(`Default login: admin@gst.local / Admin@123`);
   });
 }).catch(err => {
   console.error('❌ Failed to initialize database:', err.message);

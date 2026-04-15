@@ -39,6 +39,14 @@
   ═══════════════════════════════════════════════════════════ */
   function init(user) {
     if (initialized || !user) return;
+    
+    // Only initialize for non-admins (Accountant / User mode)
+    const role = user.role || 'user';
+    if (role === 'admin') {
+      console.log('ℹ️ Chatbot disabled in Admin mode.');
+      return;
+    }
+
     initialized = true;
 
     myName = user.name || user.email || 'User';

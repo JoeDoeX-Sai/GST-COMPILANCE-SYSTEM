@@ -7,6 +7,45 @@ const Pages = {
 
   navigate(name) {
     const page = name || 'dashboard';
+
+    // Settings is now inside the Profile panel — redirect gracefully
+    if (page === 'settings') {
+      if (typeof ProfilePanel !== 'undefined') {
+        ProfilePanel.open();
+        ProfilePanel.switchTab('settings');
+      }
+      return;
+    }
+
+    // RBAC guard — block unauthorized navigation
+    if (typeof RBAC !== 'undefined' && !RBAC.canAccess(page)) {
+      document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+      document.getElementById('page-title').textContent = PAGE_TITLES[page] || 'GST System';
+
+      const messages = {
+        businesses: 'You do not have permission to manage businesses. Only administrators can add or modify business entities.',
+        users:      'You do not have permission to manage users. Contact your administrator to request access.',
+        audit:      'Audit trail access is restricted to administrators.',
+      };
+
+      document.getElementById('page-content').innerHTML = `
+        <div class="access-denied-wrap">
+          <div class="access-denied-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+            </svg>
+          </div>
+          <div class="access-denied-body">
+            <h2 class="access-denied-title">Access Restricted</h2>
+            <p class="access-denied-msg">${messages[page] || 'You do not have permission to view this page.'}</p>
+            <p class="access-denied-sub">Please contact your administrator if you require access.</p>
+            <button class="btn btn-primary btn-md" onclick="Pages.navigate('dashboard')">Go to Dashboard</button>
+          </div>
+        </div>`;
+      return;
+    }
+
     document.querySelectorAll('.nav-item').forEach(el => {
       el.classList.toggle('active', el.dataset.page === page);
     });
@@ -26,13 +65,33 @@ const PAGE_TITLES = {
   returns: 'GST Returns', reconcile: 'Reconciliation', parties: 'Parties',
   compliance: 'Compliance Calendar', tds: 'TDS / TCS', analytics: 'Analytics',
   hsn: 'HSN / SAC Lookup', audit: 'Audit Trail', users: 'User Management',
-  businesses: 'Businesses', settings: 'Settings',
+  businesses: 'Businesses',
 };
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
 Pages.register('dashboard', async () => {
   const bizId = App.currentBiz?.id;
-  if (!bizId) { document.getElementById('page-content').innerHTML = `<div class="empty-state"><div class="empty-icon">🏢</div><div class="empty-title">No business selected</div><div class="empty-sub">Add a business to get started</div><br><button class="btn btn-primary" onclick="Pages.navigate('businesses')">Add Business</button></div>`; return; }
+  if (!bizId) {
+    document.getElementById('page-content').innerHTML = `
+      <div class="empty-state-full">
+        <div class="empty-state-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            <polyline points="9 22 9 12 15 12 15 22"/>
+          </svg>
+        </div>
+        <h2 class="empty-state-heading">No Business Selected</h2>
+        ${RBAC.isAdmin() ? `
+          <p class="empty-state-desc">Add your first business to start managing GST filings, invoices, and compliance tracking.</p>
+          <button class="btn btn-primary btn-md" onclick="Pages.navigate('businesses')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add Business
+          </button>` : `
+          <p class="empty-state-desc">No business has been assigned to your account.</p>
+          <button class="btn btn-secondary btn-md" onclick="ProfilePanel.open();ProfilePanel.switchTab('gst')">Contact Administrator</button>`}
+      </div>`;
+    return;
+  }
 
   try {
     const [dash, compliance] = await Promise.all([
@@ -44,44 +103,41 @@ Pages.register('dashboard', async () => {
 
     document.getElementById('page-content').innerHTML = `
     <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
-      <button class="btn btn-secondary" onclick="downloadDashboardReport()">📥 Download Report</button>
+      <button class="btn btn-secondary" onclick="downloadDashboardReport()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download Report
+      </button>
     </div>
     <div class="stats-grid">
       <div class="stat-card blue">
         <div class="stat-label">Total Sales (FY)</div>
         <div class="stat-value">${fmtAmount(s.total_sales)}</div>
         <div class="stat-sub">${fmtNum(s.total_invoices)} invoices</div>
-        <div class="stat-icon">📄</div>
       </div>
       <div class="stat-card green">
         <div class="stat-label">Total Tax Collected</div>
         <div class="stat-value">${fmtAmount(s.total_tax)}</div>
         <div class="stat-sub">CGST + SGST + IGST</div>
-        <div class="stat-icon">🏛️</div>
       </div>
       <div class="stat-card teal">
         <div class="stat-label">ITC Available</div>
         <div class="stat-value">${fmtAmount(s.itc_eligible)}</div>
         <div class="stat-sub">From purchases</div>
-        <div class="stat-icon">💳</div>
       </div>
       <div class="stat-card amber">
         <div class="stat-label">Net Tax Liability</div>
         <div class="stat-value">${fmtAmount(s.net_liability)}</div>
         <div class="stat-sub">After ITC adjustment</div>
-        <div class="stat-icon">⚖️</div>
       </div>
-      <div class="stat-card ${s.financial_year}">
+      <div class="stat-card">
         <div class="stat-label">Taxable Turnover</div>
         <div class="stat-value">${fmtAmount(s.total_taxable)}</div>
         <div class="stat-sub">FY ${s.financial_year}</div>
-        <div class="stat-icon">📊</div>
       </div>
       <div class="stat-card ${d.compliance.overdue > 0 ? 'red' : 'green'}">
         <div class="stat-label">Compliance Status</div>
-        <div class="stat-value">${d.compliance.overdue > 0 ? d.compliance.overdue+' Overdue' : 'On Track'}</div>
+        <div class="stat-value">${d.compliance.overdue > 0 ? d.compliance.overdue + ' Overdue' : 'On Track'}</div>
         <div class="stat-sub">${d.compliance.pending_upcoming} due this week</div>
-        <div class="stat-icon">${d.compliance.overdue > 0 ? '⚠️' : '✅'}</div>
       </div>
     </div>
 
@@ -160,7 +216,7 @@ Pages.register('dashboard', async () => {
       });
     }
   } catch(e) {
-    document.getElementById('page-content').innerHTML = `<div class="alert alert-danger">Failed to load dashboard: ${e.message}</div>`;
+    document.getElementById('page-content').innerHTML = `<div class="alert alert-danger">Failed to load dashboard: ${escHtml(e.message)}</div>`;
   }
 });
 

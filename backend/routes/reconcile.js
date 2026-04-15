@@ -1,9 +1,10 @@
 const router = require('express').Router();
 const { Purchase, Party } = require('../utils/db');
-const { auth } = require('../middleware/auth');
-const mongoose = require('mongoose');
+const { auth, requireBizAccess } = require('../middleware/auth');
 
-router.get('/', auth, async (req, res) => {
+function norm(doc) { if (doc && doc._id) doc.id = String(doc._id); return doc; }
+
+router.get('/', auth, requireBizAccess, async (req, res) => {
   try {
     const { business_id, period } = req.query;
     if (!business_id || !period) return res.status(400).json({ success: false, message: 'business_id and period required' });
@@ -11,6 +12,7 @@ router.get('/', auth, async (req, res) => {
     const from = `${y}-${m}-01`, to = `${y}-${m}-${String(new Date(parseInt(y),parseInt(m),0).getDate()).padStart(2,'0')}`;
     const purchases = await Purchase.find({ business_id, invoice_date: { $gte: from, $lte: to } }).lean();
     for (const p of purchases) {
+      norm(p);
       if (p.party_id) { const party = await Party.findById(p.party_id).select('name').lean(); p.vendor = party?.name; }
     }
     const matched = purchases.filter(p=>p.match_status==='matched').length;

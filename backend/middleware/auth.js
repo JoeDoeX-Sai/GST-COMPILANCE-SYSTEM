@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
-const { User, AuditLog } = require('../utils/db');
+const { User, UserBusiness, AuditLog } = require('../utils/db');
 
+// ── Authenticate JWT ──────────────────────────────────────────────────────────
 function auth(req, res, next) {
   const header = req.headers['authorization'];
   if (!header) return res.status(401).json({ success: false, message: 'No token provided' });
@@ -14,14 +15,32 @@ function auth(req, res, next) {
   });
 }
 
+// ── Require specific role(s) ──────────────────────────────────────────────────
 function requireRole(...roles) {
   return (req, res, next) => {
     if (!roles.includes(req.user?.role))
-      return res.status(403).json({ success: false, message: 'Insufficient permissions' });
+      return res.status(403).json({ success: false, message: 'Access denied. Insufficient permissions.' });
     next();
   };
 }
 
+// ── Verify business ownership (BUG-02 fix) ───────────────────────────────────
+// Admins bypass — they can access all businesses.
+// All other roles must have a UserBusiness link to the requested business.
+async function requireBizAccess(req, res, next) {
+  try {
+    const bizId = req.query.business_id || req.body.business_id;
+    if (!bizId) return next(); // individual routes handle missing bizId
+    if (req.user.role === 'admin') return next();
+    const link = await UserBusiness.findOne({ user_id: req.user._id, business_id: bizId });
+    if (!link) return res.status(403).json({ success: false, message: 'Access denied. You do not have access to this business.' });
+    next();
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+}
+
+// ── Audit log middleware ──────────────────────────────────────────────────────
 function auditLog(action, entityType) {
   return (req, res, next) => {
     const orig = res.json.bind(res);
@@ -42,4 +61,4 @@ function auditLog(action, entityType) {
   };
 }
 
-module.exports = { auth, requireRole, auditLog };
+module.exports = { auth, requireRole, requireBizAccess, auditLog };

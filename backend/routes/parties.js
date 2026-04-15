@@ -1,9 +1,11 @@
 const router = require('express').Router();
 const { Party } = require('../utils/db');
-const { auth } = require('../middleware/auth');
+const { auth, requireBizAccess } = require('../middleware/auth');
 const { validateGSTIN, STATE_CODES } = require('../utils/gst');
 
-router.get('/', auth, async (req, res) => {
+function norm(doc) { if (doc && doc._id) doc.id = String(doc._id); return doc; }
+
+router.get('/', auth, requireBizAccess, async (req, res) => {
   try {
     const { business_id, type, search } = req.query;
     if (!business_id) return res.status(400).json({ success: false, message: 'business_id required' });
@@ -11,16 +13,17 @@ router.get('/', auth, async (req, res) => {
     if (type && type !== 'all') filter.party_type = { $in: [type, 'both'] };
     if (search) filter.$or = [{ name: { $regex: search, $options: 'i' } }, { gstin: { $regex: search, $options: 'i' } }];
     const data = await Party.find(filter).sort({ name: 1 }).lean();
+    data.forEach(norm);
     res.json({ success: true, data });
   } catch(e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
-router.post('/', auth, async (req, res) => {
+router.post('/', auth, requireBizAccess, async (req, res) => {
   try {
     const { business_id, name, gstin, pan, email, phone, address, state_code, party_type, is_registered } = req.body;
     if (!business_id || !name) return res.status(400).json({ success: false, message: 'business_id and name required' });
     const party = await Party.create({ business_id, name, gstin: gstin?.toUpperCase(), pan, email, phone, address, state_code, party_type, is_registered: is_registered ?? 1 });
-    res.json({ success: true, data: { id: party._id }, message: 'Party created' });
+    res.json({ success: true, data: { id: String(party._id) }, message: 'Party created' });
   } catch(e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
@@ -34,7 +37,7 @@ router.get('/validate/:gstin', auth, (req, res) => {
 router.get('/:id', auth, async (req, res) => {
   const p = await Party.findById(req.params.id).lean();
   if (!p) return res.status(404).json({ success: false, message: 'Not found' });
-  res.json({ success: true, data: p });
+  res.json({ success: true, data: norm(p) });
 });
 
 router.put('/:id', auth, async (req, res) => {

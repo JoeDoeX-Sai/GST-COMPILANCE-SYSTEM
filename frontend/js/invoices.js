@@ -1,5 +1,5 @@
 // ─── INVOICES PAGE ────────────────────────────────────────────────────────────
-let invoicePage = 1, invoiceFilters = {};
+let invoicePage = 1;
 
 Pages.register('invoices', async () => {
   document.getElementById('page-content').innerHTML = `
@@ -22,7 +22,7 @@ Pages.register('invoices', async () => {
         <option value="EXPWOP">Export without payment</option>
       </select>
       <div style="margin-left:auto;display:flex;gap:8px">
-        <button class="btn btn-secondary btn-sm" onclick="exportInvoicesExcel()">📥 Excel</button>
+        <button class="btn btn-secondary btn-sm" onclick="exportInvoicesExcel()">Export Excel</button>
         <button class="btn btn-primary" onclick="openInvoiceModal()">+ New Invoice</button>
       </div>
     </div>
@@ -43,6 +43,7 @@ async function loadInvoices(page = 1) {
     business_id: bizId,
     page,
     limit: 30,
+    search: document.getElementById('inv-search')?.value,
     from_date: document.getElementById('inv-from')?.value,
     to_date: document.getElementById('inv-to')?.value,
     status: document.getElementById('inv-status')?.value,
@@ -51,7 +52,7 @@ async function loadInvoices(page = 1) {
   try {
     const res = await API.get('/invoices', params);
     const wrap = document.getElementById('inv-table-wrap');
-    if (!res.data?.length) { wrap.innerHTML = `<div class="empty-state"><div class="empty-icon">📄</div><div class="empty-title">No invoices found</div><div class="empty-sub">Create your first invoice</div></div>`; return; }
+    if (!res.data?.length) { wrap.innerHTML = `<div class="empty-state"><div class="empty-title">No invoices found</div><div class="empty-sub">Create your first invoice using the button above.</div></div>`; return; }
     wrap.innerHTML = `<table>
       <thead><tr>
         <th>Invoice No</th><th>Date</th><th>Party</th><th>GSTIN</th><th>Type</th>
@@ -75,7 +76,7 @@ async function loadInvoices(page = 1) {
               ${inv.status==='draft'?`<button class="btn btn-xs btn-secondary" onclick="editInvoice(${inv.id})">Edit</button>`:''}
               ${inv.status==='draft'?`<button class="btn btn-xs btn-success" onclick="confirmInvoice(${inv.id})">Confirm</button>`:''}
               <button class="btn btn-xs btn-secondary" onclick="downloadInvoicePDF(${inv.id},'${inv.invoice_number}')">PDF</button>
-              ${inv.status!=='confirmed'?`<button class="btn btn-xs btn-danger" onclick="deleteInvoice(${inv.id})">Del</button>`:''}
+              ${inv.status!=='confirmed'?`<button class="btn btn-xs btn-danger" onclick="deleteInvoice(${inv.id})">Delete</button>`:''}
             </div>
           </td>
         </tr>`).join('')}
@@ -91,7 +92,7 @@ function invoiceModalHTML() {
     <div class="modal modal-lg">
       <div class="modal-header">
         <div class="modal-title" id="inv-modal-title">New Invoice</div>
-        <button class="btn btn-sm btn-secondary" onclick="closeModal('invoice-modal')">✕</button>
+        <button class="btn btn-sm btn-secondary btn-icon" onclick="closeModal('invoice-modal')" aria-label="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </div>
       <div class="modal-body">
         <div class="form-grid" style="margin-bottom:16px">
@@ -236,7 +237,7 @@ function renderInvItems() {
       </select></td>
       <td class="font-mono text-muted" id="itax-${i}">${fmtAmount(((item.cgst||0)+(item.sgst||0)+(item.igst||0)),'')}</td>
       <td class="font-mono font-bold" id="itot-${i}">${fmtAmount(item.total||0,'')}</td>
-      <td><button class="btn btn-xs btn-danger btn-icon" onclick="removeInvItem(${i})">✕</button></td>
+      <td><button class="btn btn-xs btn-danger btn-icon" onclick="removeInvItem(${i})" aria-label="Remove item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></td>
     </tr>
   `).join('');
   recalcInvoice();
@@ -348,7 +349,7 @@ async function viewInvoice(id) {
     const modal = document.createElement('div');
     modal.className = 'modal-overlay open';
     modal.innerHTML = `<div class="modal" style="max-width:680px">
-      <div class="modal-header"><div class="modal-title">Invoice: ${inv.invoice_number}</div><button class="btn btn-sm btn-secondary" onclick="this.closest('.modal-overlay').remove()">✕</button></div>
+      <div class="modal-header"><div class="modal-title">Invoice: ${inv.invoice_number}</div><button class="btn btn-sm btn-secondary btn-icon" onclick="this.closest('.modal-overlay').remove()" aria-label="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
       <div class="modal-body">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
           <div class="card"><div class="card-body" style="padding:12px">
@@ -382,7 +383,7 @@ async function viewInvoice(id) {
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="downloadInvoicePDF(${inv.id},'${inv.invoice_number}')">📥 Download PDF</button>
+        <button class="btn btn-secondary" onclick="downloadInvoicePDF(${inv.id},'${inv.invoice_number}')">Download PDF</button>
         <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Close</button>
       </div>
     </div>`;

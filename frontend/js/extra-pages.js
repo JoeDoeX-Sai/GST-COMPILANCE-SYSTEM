@@ -11,7 +11,7 @@ Pages.register('hsn', async () => {
         </select>
       </div>
       <div id="hsn-results">
-        <div class="empty-state" style="padding:32px"><div class="empty-icon">🔍</div><div class="empty-title">Type to search</div><div class="empty-sub">Search by HSN/SAC code or description</div></div>
+        <div class="empty-state" style="padding:32px"><div class="empty-title">Enter a code or keyword to search</div><div class="empty-sub">Search by HSN/SAC code or description</div></div>
       </div>
     </div>
   </div>`;
@@ -75,7 +75,7 @@ async function loadCompliance() {
         </div>
         <div style="display:flex;align-items:center;gap:8px">
           ${statusBadge(c.status)}
-          ${c.status==='pending'?`<button class="btn btn-xs btn-success" onclick="markFiled(${c.id})">Mark Filed</button>`:''}
+          ${c.status==='pending'?`<button class="btn btn-xs btn-success" onclick="markFiled('${c._id}')">Mark Filed</button>`:''}
         </div>
       </div>`).join('') : '<div class="empty-state" style="padding:32px"><div class="empty-sub">No compliance entries. Add a business to generate calendar.</div></div>';
 
@@ -85,7 +85,7 @@ async function loadCompliance() {
     alerts.innerHTML = [
       ...overdue.map(c=>`<div class="cal-item"><div style="width:8px;height:8px;border-radius:50%;background:var(--red);flex-shrink:0"></div><div class="cal-info flex-1"><div class="cal-return text-red">${c.return_type} — OVERDUE</div><div class="cal-period">Due: ${fmtDate(c.due_date)}</div></div></div>`),
       ...upcoming.slice(0,6).map(c=>`<div class="cal-item"><div style="width:8px;height:8px;border-radius:50%;background:var(--amber);flex-shrink:0"></div><div class="cal-info flex-1"><div class="cal-return">${c.return_type}</div><div class="cal-period">Due: ${fmtDate(c.due_date)} · ${periodLabel(c.period)}</div></div></div>`)
-    ].join('') || '<div class="empty-state" style="padding:32px"><div class="empty-sub">All caught up! ✓</div></div>';
+    ].join('') || '<div class="empty-state" style="padding:32px"><div class="empty-sub">No upcoming or overdue filings.</div></div>';
   } catch(e) { toast(e.message, 'error'); }
 }
 
@@ -111,7 +111,7 @@ Pages.register('tds', async () => {
           <div class="form-group"><label>Amount (auto)</label><input id="tds-amount" readonly style="background:var(--bg3)"></div>
           <div class="form-group"><label>Period (MMYYYY)</label><input id="tds-period" value="${currentPeriod()}"></div>
         </div>
-        <div class="alert alert-info mt-3"><span>💡</span><span>TDS amount = Base × Rate / 100. Calculated automatically.</span></div>
+        <div class="alert alert-info mt-3">TDS amount is calculated automatically as: Base Amount × Rate / 100.</div>
         <button class="btn btn-primary w-full mt-3" onclick="saveTDS()">Save Entry</button>
       </div>
     </div>
@@ -161,7 +161,7 @@ async function loadTDS() {
     <td class="text-right font-mono">${fmtAmount(t.base_amount)}</td>
     <td class="text-right">${t.rate}%</td>
     <td class="text-right font-mono font-bold">${fmtAmount(t.amount)}</td>
-    <td><button class="btn btn-xs btn-danger" onclick="deleteTDS(${t.id})">Del</button></td>
+    <td><button class="btn btn-xs btn-danger" onclick="deleteTDS('${t._id}')">Delete</button></td>
   </tr>`).join('')}</tbody></table>`;
 }
 
@@ -182,7 +182,6 @@ async function deleteTDS(id) {
     catch(e) { toast(e.message, 'error'); }
   });
 }
-
 // ─── ANALYTICS PAGE ───────────────────────────────────────────────────────────
 Pages.register('analytics', async () => {
   document.getElementById('page-content').innerHTML = `
@@ -237,7 +236,7 @@ async function loadAnalytics() {
           <div class="stat-card"><div class="stat-label">IGST ITC</div><div class="stat-value" style="font-size:1.2rem">${fmtAmount(itc.data.igst)}</div></div>
           <div class="stat-card teal"><div class="stat-label">Total ITC</div><div class="stat-value" style="font-size:1.2rem">${fmtAmount(total)}</div></div>
         </div>
-        <div class="alert alert-info mt-3"><span>💡</span><span>ITC available from ${itc.data.bills||0} purchase bills.</span></div>`;
+        <div class="alert alert-info mt-3">ITC available from ${itc.data.bills||0} purchase bills.</div>`;
     }
 
     const monthly = dash.data?.monthly;
@@ -273,7 +272,7 @@ async function loadAudit() {
   try {
     const res = await API.get('/audit', { business_id: App.currentBiz?.id, entity_type: document.getElementById('aud-entity')?.value });
     const el = document.getElementById('audit-table');
-    if (!res.data?.length) { el.innerHTML = '<div class="empty-state" style="padding:32px"><div class="empty-icon">📋</div><div class="empty-title">No audit logs yet</div></div>'; return; }
+    if (!res.data?.length) { el.innerHTML = '<div class="empty-state" style="padding:32px"><div class="empty-title">No audit logs found</div><div class="empty-sub">Actions on invoices and purchases will appear here.</div></div>'; return; }
     el.innerHTML = `<table><thead><tr><th>Time</th><th>User</th><th>Action</th><th>Entity</th><th>Details</th></tr></thead>
     <tbody>${res.data.map(a=>`<tr>
       <td class="font-mono text-xs">${fmtDate(a.created_at)}</td>
