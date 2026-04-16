@@ -17,7 +17,7 @@ Pages.register('purchases', async () => {
   </div>
   <div class="modal-overlay" id="purchase-modal">
     <div class="modal modal-sm">
-      <div class="modal-header"><div class="modal-title">Add Purchase Invoice</div><button class="btn btn-sm btn-secondary" onclick="closeModal('purchase-modal')">✕</button></div>
+      <div class="modal-header"><div class="modal-title">Add Purchase Invoice</div><button class="btn btn-sm btn-secondary btn-icon" onclick="closeModal('purchase-modal')" aria-label="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
       <div class="modal-body">
         <div class="form-grid form-grid-2">
           <div class="form-group"><label>Invoice No *</label><input id="pur-invno" placeholder="VND/001"></div>
@@ -47,7 +47,7 @@ async function loadPurchases() {
   try {
     const res = await API.get('/purchases', { business_id: bizId, from_date: document.getElementById('pur-from')?.value, to_date: document.getElementById('pur-to')?.value, match_status: document.getElementById('pur-match')?.value });
     const wrap = document.getElementById('pur-table');
-    if (!res.data?.length) { wrap.innerHTML = '<div class="empty-state"><div class="empty-icon">🧾</div><div class="empty-title">No purchases</div></div>'; return; }
+    if (!res.data?.length) { wrap.innerHTML = '<div class="empty-state"><div class="empty-title">No purchases found</div><div class="empty-sub">Add a purchase invoice to get started.</div></div>'; return; }
     wrap.innerHTML = `<table><thead><tr><th>Invoice No</th><th>Date</th><th>Vendor</th><th class="text-right">Taxable</th><th class="text-right">CGST</th><th class="text-right">SGST</th><th class="text-right">IGST</th><th class="text-right">Total</th><th>ITC</th><th>Match</th><th>Actions</th></tr></thead>
     <tbody>${res.data.map(p=>`<tr>
       <td class="font-mono">${p.invoice_number}</td>
@@ -62,7 +62,7 @@ async function loadPurchases() {
       <td>${statusBadge(p.match_status)}</td>
       <td>
         <button class="btn btn-xs btn-secondary" onclick="editPurchase(${JSON.stringify(p).replace(/"/g,'&quot;')})">Edit</button>
-        <button class="btn btn-xs btn-danger" onclick="deletePurchase(${p.id})">Del</button>
+        <button class="btn btn-xs btn-danger" onclick="deletePurchase('${p._id}')">Delete</button>
       </td>
     </tr>`).join('')}</tbody></table>`;
   } catch(e) { toast(e.message, 'error'); }
@@ -87,13 +87,19 @@ function openPurchaseModal(p = null) {
 function editPurchase(p) { openPurchaseModal(typeof p === 'string' ? JSON.parse(p) : p); }
 
 async function savePurchase() {
+  const invoiceNo = document.getElementById('pur-invno').value.trim();
+  const invoiceDate = document.getElementById('pur-date').value;
+  if (!invoiceNo) { toast('Invoice number is required', 'error'); return; }
+  if (!invoiceDate) { toast('Invoice date is required', 'error'); return; }
+  const taxable = +document.getElementById('pur-taxable').value || 0;
+  if (taxable <= 0) { toast('Taxable value must be greater than zero', 'error'); return; }
   try {
     const body = {
       business_id: App.currentBiz?.id,
-      invoice_number: document.getElementById('pur-invno').value,
-      invoice_date: document.getElementById('pur-date').value,
+      invoice_number: invoiceNo,
+      invoice_date: invoiceDate,
       party_gstin: document.getElementById('pur-gstin').value,
-      taxable_value: +document.getElementById('pur-taxable').value || 0,
+      taxable_value: taxable,
       cgst: +document.getElementById('pur-cgst').value || 0,
       sgst: +document.getElementById('pur-sgst').value || 0,
       igst: +document.getElementById('pur-igst').value || 0,
@@ -176,7 +182,7 @@ async function prepareReturn() {
     </div>`;
     toast('Return prepared', 'success');
     loadReturnHistory();
-  } catch(e) { el.innerHTML = `<div class="alert alert-danger">${e.message}</div>`; }
+  } catch(e) { el.innerHTML = `<div class="alert alert-danger">${escHtml(e.message)}</div>`; }
 }
 
 async function loadReturnHistory() {
@@ -206,8 +212,9 @@ async function fileReturn(btn) {
     const rets = await API.get('/returns', { business_id: bizId, return_type: returnType, period });
     const ret = rets.data?.[0];
     if (!ret) { toast('Prepare the return first', 'error'); return; }
-    await API.patch(`/returns/${ret.id}/file`);
-    toast('Return filed successfully!', 'success');
+    const retId = ret.id || String(ret._id);
+    await API.patch(`/returns/${retId}/file`);
+    toast('Return filed successfully', 'success');
     loadReturnHistory();
   } catch(e) { toast(e.message, 'error'); }
 }
@@ -245,10 +252,10 @@ async function loadReconcile() {
     const res = await API.get('/reconcile', { business_id: App.currentBiz?.id, period });
     const d = res.data;
     document.getElementById('rec-stats').innerHTML = `
-      <div class="stat-card"><div class="stat-label">Total Bills</div><div class="stat-value">${d.purchases?.length||0}</div><div class="stat-icon">🧾</div></div>
-      <div class="stat-card green"><div class="stat-label">Matched</div><div class="stat-value">${d.matched}</div><div class="stat-icon">✅</div></div>
-      <div class="stat-card red"><div class="stat-label">Mismatch</div><div class="stat-value">${d.mismatched}</div><div class="stat-icon">⚠️</div></div>
-      <div class="stat-card teal"><div class="stat-label">ITC Eligible</div><div class="stat-value">${fmtAmount(d.total_itc_eligible)}</div><div class="stat-icon">💳</div></div>`;
+      <div class="stat-card"><div class="stat-label">Total Bills</div><div class="stat-value">${d.purchases?.length||0}</div></div>
+      <div class="stat-card green"><div class="stat-label">Matched</div><div class="stat-value">${d.matched}</div></div>
+      <div class="stat-card red"><div class="stat-label">Mismatch</div><div class="stat-value">${d.mismatched}</div></div>
+      <div class="stat-card teal"><div class="stat-label">ITC Eligible</div><div class="stat-value">${fmtAmount(d.total_itc_eligible)}</div></div>`;
 
     if (d.pending_invoices?.length) {
       document.getElementById('rec-table-card').style.display = '';
@@ -296,7 +303,7 @@ Pages.register('parties', async () => {
   </div>
   <div class="modal-overlay" id="party-modal">
     <div class="modal modal-sm">
-      <div class="modal-header"><div class="modal-title" id="par-modal-title">Add Party</div><button class="btn btn-sm btn-secondary" onclick="closeModal('party-modal')">✕</button></div>
+      <div class="modal-header"><div class="modal-title" id="par-modal-title">Add Party</div><button class="btn btn-sm btn-secondary btn-icon" onclick="closeModal('party-modal')" aria-label="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
       <div class="modal-body">
         <div class="form-grid">
           <div class="form-group full"><label>Name *</label><input id="par-name" placeholder="Party name"></div>
@@ -333,7 +340,7 @@ async function loadParties() {
   try {
     const res = await API.get('/parties', { business_id: bizId, search: document.getElementById('par-search')?.value, type: document.getElementById('par-type')?.value });
     const wrap = document.getElementById('par-table');
-    if (!res.data?.length) { wrap.innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><div class="empty-title">No parties yet</div></div>'; return; }
+    if (!res.data?.length) { wrap.innerHTML = '<div class="empty-state"><div class="empty-title">No parties found</div><div class="empty-sub">Add customers and vendors to get started.</div></div>'; return; }
     wrap.innerHTML = `<table><thead><tr><th>Name</th><th>GSTIN</th><th>Type</th><th>State</th><th>Phone</th><th>Actions</th></tr></thead>
     <tbody>${res.data.map(p=>`<tr>
       <td class="font-bold">${p.name}</td>
@@ -343,7 +350,7 @@ async function loadParties() {
       <td>${p.phone||'—'}</td>
       <td><div style="display:flex;gap:4px">
         <button class="btn btn-xs btn-secondary" onclick="editParty(${JSON.stringify(p).replace(/"/g,'&quot;')})">Edit</button>
-        <button class="btn btn-xs btn-danger" onclick="deleteParty(${p.id})">Del</button>
+        <button class="btn btn-xs btn-danger" onclick="deleteParty('${p._id}')">Delete</button>
       </div></td>
     </tr>`).join('')}</tbody></table>`;
   } catch(e) { toast(e.message, 'error'); }
@@ -368,8 +375,13 @@ function editParty(p) { openPartyModal(typeof p === 'string' ? JSON.parse(p) : p
 function validateGSTINInput(el) {
   const msg = document.getElementById('par-gstin-msg');
   if (!el.value) { msg.textContent = ''; return; }
-  if (validateGSTIN(el.value)) { msg.textContent = '✓ Valid GSTIN'; msg.className = 'text-xs mt-2 text-green'; }
-  else { msg.textContent = '✗ Invalid GSTIN format'; msg.className = 'text-xs mt-2 text-red'; }
+  if (validateGSTIN(el.value)) {
+    msg.textContent = 'Valid GSTIN format';
+    msg.className = 'text-xs mt-2 text-green';
+  } else {
+    msg.textContent = 'Invalid GSTIN format — expected format: 22AAAAA0000A1Z5';
+    msg.className = 'text-xs mt-2 text-red';
+  }
 }
 
 async function saveParty() {

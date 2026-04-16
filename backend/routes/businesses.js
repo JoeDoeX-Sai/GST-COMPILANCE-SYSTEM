@@ -7,11 +7,17 @@ const { body, validationResult } = require('express-validator');
 
 const validate = (req, res, next) => {
   const errors = validationResult(req);
-  if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
+  if (!errors.isEmpty()) {
+    const message = errors.array().map(e => e.msg).join(', ');
+    return res.status(400).json({ success: false, message });
+  }
   next();
 };
 
-function normBiz(b) { return { ...b, id: b._id }; }
+function normBiz(b) {
+  const id = String(b._id);
+  return { ...b, _id: id, id };
+}
 
 router.get('/', auth, async (req, res) => {
   try {
@@ -28,9 +34,13 @@ router.get('/', auth, async (req, res) => {
 });
 
 router.post('/', auth, requireRole('admin'), [
-  body('gstin').trim().notEmpty().custom(v => validateGSTIN(v) || (() => { throw new Error('Invalid GSTIN'); })()),
-  body('legal_name').trim().notEmpty(),
-  body('state_code').trim().isLength({ min: 2, max: 2 }),
+  body('gstin').trim().notEmpty().withMessage('GSTIN is required')
+    .custom(v => {
+      if (!validateGSTIN(v)) throw new Error('Invalid GSTIN format');
+      return true;
+    }),
+  body('legal_name').trim().notEmpty().withMessage('Legal name is required'),
+  body('state_code').trim().isLength({ min: 2, max: 2 }).withMessage('State code must be 2 characters'),
   validate
 ], async (req, res) => {
   try {
@@ -52,7 +62,7 @@ router.get('/:id', auth, async (req, res) => {
   res.json({ success: true, data: normBiz(b) });
 });
 
-router.put('/:id', auth, requireRole('admin', 'accountant'), async (req, res) => {
+router.put('/:id', auth, requireRole('admin'), async (req, res) => {
   try {
     const { legal_name, trade_name, address, state_code, pan, email, phone } = req.body;
     await Business.findByIdAndUpdate(req.params.id, { legal_name, trade_name, address, state_code, pan, email, phone });

@@ -14,14 +14,20 @@ const { Server } = require('socket.io');
 const jwt        = require('jsonwebtoken');
 const { initDb } = require('./utils/db');
 const Chat       = require('./models/Chat');
-const Ticket     = require('./models/Ticket');
 const logger     = require('./utils/logger');
 const swaggerUi  = require('swagger-ui-express');
 const swaggerSpec = require('./utils/swagger');
+const { generateGstResponse } = require('./utils/ai');
 
 const app    = express();
 const server = http.createServer(app);
-const SECRET = process.env.JWT_SECRET || 'gst_secret';
+
+// Student project note: Using default secret for development
+// Set JWT_SECRET in .env for production
+const SECRET = process.env.JWT_SECRET || (() => {
+  console.warn('⚠️  Using default JWT secret - set JWT_SECRET in .env for production');
+  return 'gst_secret_dev_only';
+})();
 
 const io = new Server(server, {
   cors: { origin: '*', methods: ['GET','POST'] },
@@ -40,7 +46,15 @@ app.use(morgan('combined', { stream: { write: msg => logger.http(msg.trim()) } }
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use('/api/', rateLimit({ windowMs: 15*60*1000, max: 500, standardHeaders: true, legacyHeaders: false }));
-app.use(express.static(path.join(__dirname, '../frontend')));
+// Serve static assets but disable auto-serving index.html for '/'
+app.use(express.static(path.join(__dirname, '../'), { index: false }));
+app.use(express.static(path.join(__dirname, '../frontend'), { index: false }));
+app.use(express.static(path.join(__dirname, '../frontend/html'), { index: false }));
+
+// Landing page is the entry point
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/html/landing.html'));
+});
 
 // Swagger API docs
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, { customSiteTitle: 'GST API Docs' }));
@@ -99,7 +113,7 @@ app.get('/api/backup', auth, (req, res) => {
 app.set('io', io);
 
 app.get('*', (req, res) => {
-  if (!req.path.startsWith('/api')) res.sendFile(path.join(__dirname, '../frontend/index.html'));
+  if (!req.path.startsWith('/api')) res.sendFile(path.join(__dirname, '../frontend/html/index.html'));
 });
 
 app.use((err, req, res, next) => {
@@ -116,29 +130,6 @@ const botTimers = new Map(); // room → timeoutId
 const MSG_MAX_LEN = 2000;
 const RATE_LIMIT  = 20;    // max messages per 10s
 const RATE_WINDOW = 10000;
-
-const BOT_REPLIES = [
-  { keywords: ['invoice','bill'],                           message: 'To manage invoices, go to the "Sales Invoices" tab. 📄' },
-  { keywords: ['return','gstr'],                            message: 'GST returns (GSTR-1, GSTR-3B) are under the "GST Returns" tab. 📊' },
-  { keywords: ['hsn','sac'],                                message: 'Search HSN/SAC codes using the "HSN Lookup" tool in the sidebar. 🔍' },
-  { keywords: ['password','login','account'],               message: 'To reset your password, go to Settings or contact the admin. 🔐' },
-  { keywords: ['compliance','deadline','due','overdue'],    message: 'Open the "Compliance" tab to see all upcoming and overdue GST deadlines. 📅' },
-  { keywords: ['purchase','expense'],                       message: 'Track all purchases under the "Purchases" section. 🧾' },
-  { keywords: ['tds'],                                      message: 'Manage TDS entries from the "TDS" module in the sidebar. 💰' },
-  { keywords: ['export','download','pdf','excel','report'], message: 'Use the Export feature to download reports as PDF or Excel. 📥' },
-  { keywords: ['party','supplier','customer','vendor'],     message: 'Manage all parties under the "Parties" section. 👥' },
-  { keywords: ['reconcil'],                                 message: 'Reconcile purchase data with GSTR-2A/2B under the "Reconciliation" tab. ✅' },
-  { keywords: ['hello','hi','hey'],                         message: 'Hello! I am the GST Support Bot 🤖. I can help with invoices, returns, HSN codes, compliance, and more.' },
-  { keywords: ['thank','ok','okay','got it'],               message: "You're welcome! Anything else I can help with? 😊" },
-];
-
-function botReply(userMessage) {
-  const msg = (userMessage || '').toLowerCase();
-  for (const { keywords, message } of BOT_REPLIES) {
-    if (keywords.some(k => msg.includes(k))) return { resolved: true, message };
-  }
-  return { resolved: false, message: "I couldn't fully understand your query. Please describe differently, or I can raise a support ticket for you." };
-}
 
 function broadcastOnlineUsers() {
   const users = [];
@@ -252,7 +243,15 @@ io.on('connection', socket => {
       if (!adminWatchingRoom(data.room)) {
         const timer = setTimeout(async () => {
           botTimers.delete(data.room);
-          const { message: botMessage, resolved } = botReply(message);
+          
+          let chatContext = [];
+          try {
+            chatContext = await Chat.find({ room: data.room }).sort({ created_at: -1 }).limit(10).lean();
+            chatContext.reverse(); // oldest to newest
+          } catch(err) { console.error('Failed to load chat history for AI:', err.message); }
+
+          const { message: botMessage, resolved } = await generateGstResponse(message, chatContext);
+
           if (!resolved) {
             const fail = botFails.get(data.room) || { count: 0, warned: false };
             fail.count++;
@@ -265,17 +264,11 @@ io.on('connection', socket => {
           const shouldPromptTicket = !resolved && fail.count >= 2;
 
           const botMsg = {
-            room:        data.room,
-            sender:      'bot',
-            senderName:  'GST Support Bot 🤖',
-            role:        'admin',
-            userId:      'bot',
-            message:     shouldPromptTicket
-              ? "I've tried my best but couldn't resolve your query. No admin is online. Would you like to raise a support ticket?"
-              : botMessage,
-            type:        shouldPromptTicket ? 'ticket_prompt' : 'text',
-            read:        true,
-            created_at:  new Date().toISOString(),
+            room: data.room, sender: 'bot', senderName: 'GST Support Bot 🤖',
+            role: 'admin', userId: 'bot',
+            message: shouldPromptTicket ? "I've tried my best but couldn't resolve your query. No admin is online. Would you like to raise a support ticket?" : botMessage,
+            type: shouldPromptTicket ? 'ticket_prompt' : 'text',
+            read: true, created_at: new Date().toISOString(),
           };
 
           if (shouldPromptTicket) {
@@ -336,9 +329,9 @@ initDb().then(() => {
     cron.schedule('0 6 * * *', updateOverdueCompliance);
   } catch(e) {}
   server.listen(PORT, () => {
-    logger.info(`🚀 GST System running → http://localhost:${PORT}`);
-    logger.info(`📚 API Docs → http://localhost:${PORT}/api-docs`);
-    logger.info(`📧 Login: admin@gst.local  🔑 Password: Admin@123`);
+    console.log(`\n🚀 GST System running → http://localhost:${PORT}`);
+    console.log(`📧 Login: admin@gst.local`);
+    console.log(`🔑 Password: Admin@123\n`);
   });
 }).catch(err => {
   logger.error('❌ Failed to initialize database: ' + err.message);

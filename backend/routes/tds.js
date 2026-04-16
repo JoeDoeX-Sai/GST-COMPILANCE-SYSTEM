@@ -1,8 +1,10 @@
 const router = require('express').Router();
 const { TdsTcs, Party } = require('../utils/db');
-const { auth } = require('../middleware/auth');
+const { auth, requireBizAccess } = require('../middleware/auth');
 
-router.get('/', auth, async (req, res) => {
+function norm(doc) { if (doc && doc._id) doc.id = String(doc._id); return doc; }
+
+router.get('/', auth, requireBizAccess, async (req, res) => {
   try {
     const { business_id, period, entry_type } = req.query;
     if (!business_id) return res.status(400).json({ success: false, message: 'business_id required' });
@@ -11,23 +13,24 @@ router.get('/', auth, async (req, res) => {
     if (entry_type) filter.entry_type = entry_type;
     const rows = await TdsTcs.find(filter).sort({ created_at: -1 }).lean();
     for (const r of rows) {
+      norm(r);
       if (r.party_id) { const p = await Party.findById(r.party_id).select('name').lean(); r.party_name = p?.name; }
     }
     res.json({ success: true, data: rows });
   } catch(e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
-router.post('/', auth, async (req, res) => {
+router.post('/', auth, requireBizAccess, async (req, res) => {
   try {
     const { business_id, entry_type, party_id, invoice_id, section, base_amount, rate, period } = req.body;
     if (!business_id || !entry_type || !base_amount || !rate || !period) return res.status(400).json({ success: false, message: 'Required fields missing' });
     const amount = parseFloat(((base_amount * rate) / 100).toFixed(2));
     const t = await TdsTcs.create({ business_id, entry_type, party_id: party_id||null, invoice_id: invoice_id||null, section, base_amount, rate, amount, period });
-    res.json({ success: true, data: { id: t._id, amount }, message: `${entry_type} entry created` });
+    res.json({ success: true, data: { id: String(t._id), amount }, message: `${entry_type} entry created` });
   } catch(e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
-router.get('/summary', auth, async (req, res) => {
+router.get('/summary', auth, requireBizAccess, async (req, res) => {
   try {
     const { business_id, period } = req.query;
     if (!business_id) return res.status(400).json({ success: false, message: 'business_id required' });

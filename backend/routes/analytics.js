@@ -1,11 +1,11 @@
 const router = require('express').Router();
 const { Invoice, Purchase, Compliance } = require('../utils/db');
-const { auth } = require('../middleware/auth');
+const { auth, requireBizAccess } = require('../middleware/auth');
 const mongoose = require('mongoose');
 
 function toObjId(id) { return new mongoose.Types.ObjectId(id); }
 
-router.get('/dashboard', auth, async (req, res) => {
+router.get('/dashboard', auth, requireBizAccess, async (req, res) => {
   try {
     const { business_id } = req.query;
     if (!business_id) return res.status(400).json({ success: false, message: 'business_id required' });
@@ -40,7 +40,6 @@ router.get('/dashboard', auth, async (req, res) => {
       { $group: { _id: '$supply_type', taxable: { $sum: '$taxable_value' }, cgst: { $sum: '$cgst' }, sgst: { $sum: '$sgst' }, igst: { $sum: '$igst' } } },
       { $project: { _id: 0, supply_type: '$_id', taxable: 1, cgst: 1, sgst: 1, igst: 1 } }
     ]);
-    const today = new Date().toISOString().split('T')[0];
     const sevenDays = new Date(Date.now()+7*24*60*60*1000).toISOString().split('T')[0];
     const pendingComp = await Compliance.countDocuments({ business_id: bid, status: 'pending', due_date: { $lte: sevenDays } });
     const overdueComp = await Compliance.countDocuments({ business_id: bid, status: 'overdue' });
@@ -55,7 +54,7 @@ router.get('/dashboard', auth, async (req, res) => {
   } catch(e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
-router.get('/tax-trend', auth, async (req, res) => {
+router.get('/tax-trend', auth, requireBizAccess, async (req, res) => {
   try {
     const { business_id, months = 12 } = req.query;
     if (!business_id) return res.status(400).json({ success: false, message: 'business_id required' });
@@ -72,7 +71,7 @@ router.get('/tax-trend', auth, async (req, res) => {
   } catch(e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
-router.get('/itc-summary', auth, async (req, res) => {
+router.get('/itc-summary', auth, requireBizAccess, async (req, res) => {
   try {
     const { business_id } = req.query;
     if (!business_id) return res.status(400).json({ success: false, message: 'business_id required' });

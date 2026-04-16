@@ -14,6 +14,7 @@ const userSchema = new mongoose.Schema({
   email: { type: String, unique: true, lowercase: true },
   password: String,
   role: { type: String, default: 'accountant' },
+  phone: { type: String, default: '' },
   active: { type: Number, default: 1 },
   googleId: String, facebookId: String, githubId: String,
   resetPasswordToken: String,

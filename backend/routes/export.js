@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const { Invoice, InvoiceItem, Business, Purchase } = require('../utils/db');
-const { auth } = require('../middleware/auth');
+const { auth, requireBizAccess } = require('../middleware/auth');
 const mongoose = require('mongoose');
 
 router.get('/invoice/:id/pdf', auth, async (req, res) => {
@@ -93,7 +93,7 @@ router.get('/invoice/:id/pdf', auth, async (req, res) => {
   }
 });
 
-router.get('/invoices/excel', auth, async (req, res) => {
+router.get('/invoices/excel', auth, requireBizAccess, async (req, res) => {
   try {
     const ExcelJS = require('exceljs');
     const { business_id, from_date, to_date } = req.query;
@@ -127,7 +127,7 @@ router.get('/invoices/excel', auth, async (req, res) => {
   }
 });
 
-router.get('/dashboard-report', auth, async (req, res) => {
+router.get('/dashboard-report', auth, requireBizAccess, async (req, res) => {
   try {
     const PDFDocument = require('pdfkit');
     const { business_id } = req.query;

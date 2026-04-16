@@ -37,6 +37,11 @@ const API = {
   delete: (path) => API.req('DELETE', path),
 };
 
+// HTML escape helper — prevents XSS when injecting user/API data into innerHTML
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
 // Toast
 function toast(msg, type = 'info', dur = 3500) {
   const icons = { success: '✓', error: '✕', info: 'ℹ' };
@@ -155,6 +160,43 @@ function debounce(fn, ms = 300) {
   let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
 }
 
+// ─── RBAC helpers ─────────────────────────────────────────────────────────────
+const RBAC = {
+  // Pages only admins can access
+  adminOnly: ['users', 'audit', 'businesses'],
+
+  isAdmin() { return App.user?.role === 'admin'; },
+  isAccountant() { return App.user?.role === 'accountant'; },
+  isViewer() { return App.user?.role === 'viewer'; },
+
+  canAccess(page) {
+    if (this.adminOnly.includes(page)) return this.isAdmin();
+    return true;
+  },
+
+  canWrite() {
+    return this.isAdmin() || this.isAccountant();
+  },
+
+  // Apply visibility to sidebar nav items based on role
+  applyToSidebar() {
+    if (!App.user) return;
+    const isAdm = this.isAdmin();
+    // Hide specific nav items
+    document.querySelectorAll('.nav-item[data-page]').forEach(el => {
+      const page = el.dataset.page;
+      el.style.display = (this.adminOnly.includes(page) && !isAdm) ? 'none' : '';
+    });
+    // Hide entire sectors (like Admin section)
+    document.querySelectorAll('.admin-only').forEach(el => {
+      el.style.display = isAdm ? '' : 'none';
+    });
+    // Hide the biz-switcher "add business" affordance for non-admins
+    const switcher = document.getElementById('sidebar-biz-switcher');
+    if (switcher) switcher.style.cursor = isAdm ? 'pointer' : 'default';
+  }
+};
+
 // App state
 const App = {
   user: null,
@@ -170,7 +212,7 @@ const App = {
       this.businesses = res.businesses || [];
       const savedBiz = localStorage.getItem('gst_biz_id');
       this.currentBiz = this.businesses.find(b => String(b.id || b._id) === String(savedBiz)) || this.businesses[0];
-      if (this.currentBiz) localStorage.setItem('gst_biz_id', this.currentBiz.id || this.currentBiz._id);
+      if (this.currentBiz) localStorage.setItem('gst_biz_id', String(this.currentBiz.id || this.currentBiz._id));
       this.showApp();
       Pages.navigate(location.hash.replace('#', '') || 'dashboard');
     } catch (e) {
@@ -188,6 +230,7 @@ const App = {
     document.getElementById('auth-screen').style.display = 'none';
     document.getElementById('app').classList.add('visible');
     this.renderSidebar();
+    RBAC.applyToSidebar();
     this.initTheme();
     this.checkComplianceAlerts();
     this.loadNotifications();
@@ -202,18 +245,40 @@ const App = {
   },
 
   renderSidebar() {
-    // Always render user info
     if (this.user) {
       document.getElementById('user-name').textContent = this.user.name;
-      document.getElementById('user-role').textContent = this.user.role;
+      const isAdm = this.user.role === 'admin';
+      document.getElementById('user-role').textContent = isAdm ? 'Admin' : 'Accountant';
       document.getElementById('user-avatar').textContent = this.user.name.charAt(0).toUpperCase();
+      // Topbar role badge
+      const roleBadge = document.getElementById('topbar-role');
+      if (roleBadge) {
+        const isAdm = this.user.role === 'admin';
+        roleBadge.textContent = isAdm ? 'Admin' : 'Accountant';
+        roleBadge.className = `role-badge ${isAdm ? 'admin' : this.user.role === 'viewer' ? 'viewer' : 'user'}`;
+        roleBadge.classList.remove('hidden');
+      }
+      // Biz-switcher: only clickable for admins
+      const switcher = document.getElementById('sidebar-biz-switcher');
+      if (switcher) {
+        const isAdmin = RBAC.isAdmin();
+        switcher.style.cursor = isAdmin ? 'pointer' : 'default';
+        switcher.title = isAdmin ? 'Manage businesses' : '';
+        // BUG-14: only apply hover highlight for admins
+        switcher.classList.toggle('admin-clickable', isAdmin);
+      }
     }
     if (this.currentBiz) {
       document.getElementById('biz-name').textContent = this.currentBiz.trade_name || this.currentBiz.legal_name;
       document.getElementById('biz-gstin').textContent = this.currentBiz.gstin;
+      // BUG-18: populate topbar business indicator
+      const topbarBiz = document.getElementById('topbar-biz');
+      if (topbarBiz) topbarBiz.textContent = this.currentBiz.gstin || '';
     } else {
       document.getElementById('biz-name').textContent = 'No business selected';
       document.getElementById('biz-gstin').textContent = '—';
+      const topbarBiz = document.getElementById('topbar-biz');
+      if (topbarBiz) topbarBiz.textContent = '';
     }
   },
 
@@ -224,8 +289,17 @@ const App = {
       theme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
     }
     document.documentElement.setAttribute('data-theme', theme);
+    this._applyThemeIcon(theme);
+  },
+
+  _applyThemeIcon(theme) {
     const btn = document.getElementById('theme-toggle');
-    if (btn) btn.textContent = theme === 'light' ? '☀️' : '🌙';
+    if (!btn) return;
+    if (theme === 'light') {
+      btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
+    } else {
+      btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
+    }
   },
 
   toggleTheme() {
@@ -233,8 +307,7 @@ const App = {
     const next = current === 'light' ? 'dark' : 'light';
     document.documentElement.setAttribute('data-theme', next);
     localStorage.setItem('gst_theme', next);
-    const btn = document.getElementById('theme-toggle');
-    if (btn) btn.textContent = next === 'light' ? '☀️' : '🌙';
+    this._applyThemeIcon(next);
     toast(`Switched to ${next} mode`, 'info');
   },
 
@@ -275,7 +348,7 @@ const App = {
             <div class="notif-dot ${i.type}"></div>
             <div class="notif-info"><div class="notif-title">${i.title}</div><div class="notif-sub">${i.sub}</div></div>
           </div>`
-        ).join('') : '<div class="notif-empty">All caught up! ✓</div>';
+        ).join('') : '<div class="notif-empty">No pending compliance items</div>';
       }
 
       // Browser notification for overdue items
@@ -300,17 +373,26 @@ const App = {
   setCurrency(cur) {
     CURRENCY.current = cur;
     localStorage.setItem('gst_currency', cur);
+    // Keep profile panel currency selector in sync if open
+    const sel = document.getElementById('currency-select');
+    if (sel) sel.value = cur;
     // Re-render current page to reflect currency change
     const page = Pages.current || 'dashboard';
-    Pages.navigate(page);
+    if (page !== 'settings') Pages.navigate(page);
     toast(`Currency: ${CURRENCY.symbols[cur]} ${cur}`, 'info');
   },
 
   async logout() {
+    // Clear all auth data
     localStorage.removeItem('gst_token');
     localStorage.removeItem('gst_biz_id');
-    this.user = null; this.currentBiz = null;
-    this.showAuth();
+    sessionStorage.clear();
+    this.user = null;
+    this.currentBiz = null;
+    this.businesses = [];
+    // Set flag for landing page toast, then redirect
+    sessionStorage.setItem('gst_logged_out', '1');
+    window.location.href = '/';
   }
 };
 

@@ -23,13 +23,39 @@ router.post('/login', [
     const user = await User.findOne({ email: email.toLowerCase(), active: 1 });
     if (!user || !user.password || !bcrypt.compareSync(password, user.password))
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
-    if (!user.emailVerified)
+    // Only block unverified users who registered via email (not admin/OAuth/password-reset users)
+    if (user.emailVerified === false && user.emailVerifyToken)
       return res.status(403).json({ success: false, message: 'Please verify your email before logging in.', unverified: true });
     const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET || 'gst_secret', { expiresIn: '7d' });
     const ubLinks = await UserBusiness.find({ user_id: user._id });
     const bizIds = ubLinks.map(u => u.business_id);
     const businesses = await Business.find({ _id: { $in: bizIds }, active: 1 }).lean();
     res.json({ success: true, token, user: { id: user._id, name: user.name, email: user.email, role: user.role }, businesses: businesses.map(b => ({ ...b, id: b._id })) });
+  } catch(e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+// ── Profile — GET ─────────────────────────────────────────────────────────────
+router.get('/profile', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select('name email phone role active created_at').lean();
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    res.json({ success: true, data: { ...user, id: String(user._id) } });
+  } catch(e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+// ── Profile — PUT ─────────────────────────────────────────────────────────────
+router.put('/profile', auth, [
+  body('name').trim().notEmpty().withMessage('Name is required'),
+  body('email').trim().isEmail().withMessage('Valid email is required'),
+  body('phone').optional({ checkFalsy: true }).trim(),
+  validate
+], async (req, res) => {
+  try {
+    const { name, email, phone } = req.body;
+    const existing = await User.findOne({ email: email.toLowerCase(), _id: { $ne: req.user._id } });
+    if (existing) return res.status(400).json({ success: false, message: 'Email is already in use by another account' });
+    await User.findByIdAndUpdate(req.user._id, { name: name.trim(), email: email.toLowerCase().trim(), phone: phone?.trim() || '' });
+    res.json({ success: true, message: 'Profile updated successfully' });
   } catch(e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
@@ -154,6 +180,8 @@ router.post('/reset-password', [
     user.password = bcrypt.hashSync(req.body.password, 10);
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
+    user.emailVerified = true; // ensure login works after reset
+    user.emailVerifyToken = undefined;
     await user.save();
     res.json({ success: true, message: 'Password has been successfully changed.' });
   } catch(e) { res.status(500).json({ success: false, message: e.message }); }
