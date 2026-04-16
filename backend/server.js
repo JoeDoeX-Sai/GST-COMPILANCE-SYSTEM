@@ -29,14 +29,7 @@ const io = new Server(server, {
   pingInterval: 25000,
 });
 
-const SECRET = process.env.JWT_SECRET || 'gst_secret';
 
-/* ── Socket.IO ─────────────────────────────────────────────── */
-const io = new Server(server, {
-  cors: { origin: '*', methods: ['GET','POST'] },
-  pingTimeout: 60000,
-  pingInterval: 25000,
-});
 
 /* ── Middleware ─────────────────────────────────────────────── */
 app.use(helmet({ contentSecurityPolicy: false }));
@@ -189,68 +182,7 @@ io.on('connection', socket => {
         const room = `chat_${userId}`;
         online.get(socket.id).room = room;
         socket.join(room);
-<<<<<<< HEAD
-        socket.emit('authenticated', { ok:true, role:'user', room });
-        broadcastOnlineUsers();
-        console.log(`✅ User authenticated: ${userName} (${userId}) → room ${room}`);
-      }
-    } catch(e) {
-      console.warn('❌ Socket auth fail:', e.message);
-      socket.emit('authenticated', { ok:false, error:'Invalid token' });
-    }
-  });
 
-  /* ── Join room (admin switching conversations) ── */
-  socket.on('joinRoom', room => {
-    const d = online.get(socket.id);
-    if (!d) return;
-    if (d.activeRoom) socket.leave(d.activeRoom);
-    d.activeRoom = room;
-    socket.join(room);
-    console.log(`👥 ${d.userName} joined room ${room}`);
-  });
-
-  /* ── Send message ── */
-  socket.on('sendMessage', async data => {
-    if (!data || !data.room || !String(data.message||'').trim()) return;
-
-    const payload = {
-      room:        data.room,
-      sender:      data.userId || data.sender || 'unknown',
-      senderName:  data.senderName || data.sender || 'User',
-      role:        data.role || 'user',
-      userId:      data.userId || '',
-      message:     String(data.message).trim(),
-      read:        false,
-      created_at:  new Date().toISOString(),
-    };
-
-    // Persist
-    try {
-      const saved = await Chat.create(payload);
-      payload._id = String(saved._id);
-    } catch(e) { console.error('❌ Chat save error:', e.message); }
-
-    // Deliver to room (includes sender — they'll see their own message)
-    io.to(data.room).emit('receiveMessage', payload);
-
-    // Notify admin panel live (sidebar update)
-    if (payload.role !== 'admin') {
-      io.to('admin_watch').emit('newUserMessage', {
-        room:       data.room,
-        userId:     data.userId,
-        senderName: payload.senderName,
-        lastMessage:payload.message,
-        lastTime:   payload.created_at,
-      });
-
-      // ── BOT AUTO-REPLY ──────────────────────────────────────
-      // If no admin is actively watching this room, send bot reply after 1.5s
-      if (!adminWatchingRoom(data.room)) {
-        setTimeout(async () => {
-          const { message: botMessage, resolved } = botReply(payload.message);
-
-          // Track failures per room
         socket.emit('authenticated', { ok: true, role: 'user', room });
         broadcastOnlineUsers();
       }
