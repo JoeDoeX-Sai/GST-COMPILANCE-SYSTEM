@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GST Compliance System</title>
   <link rel="stylesheet" href="/css/style.css">
-  <link rel="stylesheet" href="/css/chat.css">
+  <link rel="stylesheet" href="/css/chat-new.css">
+  <link rel="stylesheet" href="/css/profile.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 </head>
 <body>
@@ -213,7 +214,7 @@
     </div>
 
     <div class="sidebar-footer">
-      <div class="user-info" id="profile-trigger" onclick="ProfilePanel.open()" title="View profile" style="cursor:pointer">
+      <div class="user-info" id="profile-trigger" onclick="Pages.navigate('profile')" title="View profile" style="cursor:pointer">
         <div class="user-avatar" id="user-avatar">A</div>
         <div style="flex:1;overflow:hidden">
           <div class="user-name" id="user-name">Loading...</div>
@@ -416,7 +417,7 @@
 <script src="/js/admin-pages.js"></script>
 <script src="/js/profile.js"></script>
 <script src="/socket.io/socket.io.js"></script>
-<script src="/js/chat.js"></script>
+<script src="/js/chat-new.js"></script>
 
 <script>
   // Password visibility toggle

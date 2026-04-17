@@ -65,7 +65,7 @@ const PAGE_TITLES = {
   returns: 'GST Returns', reconcile: 'Reconciliation', parties: 'Parties',
   compliance: 'Compliance Calendar', tds: 'TDS / TCS', analytics: 'Analytics',
   hsn: 'HSN / SAC Lookup', audit: 'Audit Trail', users: 'User Management',
-  businesses: 'Businesses',
+  businesses: 'Businesses', profile: 'Profile',
 };
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
@@ -234,3 +234,31 @@ function downloadDashboardReport() {
   a.remove();
   toast('Downloading report...', 'info');
 }
+
+// Helper: open support chat for "Contact Administrator" button
+Pages._contactAdmin = function() {
+  if (typeof ChatModule !== 'undefined' && ChatModule.open) {
+    ChatModule.open();
+  } else {
+    // Fallback: open profile panel
+    if (typeof ProfilePanel !== 'undefined') ProfilePanel.open();
+  }
+};
+
+// ─── PROFILE PAGE ─────────────────────────────────────────────────────────────
+Pages.register('profile', async () => {
+  try {
+    const res = await fetch('/html/profile.html');
+    const html = await res.text();
+    document.getElementById('page-content').innerHTML = html;
+    
+    // Load profile data
+    await ProfilePage.load();
+    
+    // Initialize with profile tab active
+    ProfilePage.switchTab('profile');
+  } catch(e) {
+    document.getElementById('page-content').innerHTML = `<div class="alert alert-danger">Failed to load profile page: ${escHtml(e.message)}</div>`;
+  }
+});
+

@@ -387,9 +387,9 @@ const App = {
     this.user = null;
     this.currentBiz = null;
     this.businesses = [];
-    // Set flag for landing page toast, then redirect
-    sessionStorage.setItem('gst_logged_out', '1');
-    window.location.href = '/';
+    // Show auth screen instead of redirecting to landing page
+    this.showAuth();
+    toast('Logged out successfully', 'info');
   }
 };
 
@@ -399,3 +399,49 @@ document.addEventListener('click', e => {
   const dd = document.getElementById('notif-dropdown');
   if (wrap && dd && !wrap.contains(e.target)) dd.classList.remove('open');
 });
+
+// ─── Business Switcher ────────────────────────────────────────────────────────
+// Shows a dropdown in the topbar when a non-admin user has multiple businesses.
+const BizSwitcher = {
+  update() {
+    const wrap = document.getElementById('biz-switcher-wrap');
+    if (!wrap) return;
+    const businesses = App.businesses || [];
+    const isAdmin = App.user?.role === 'admin';
+
+    // Admins manage businesses via the sidebar; single-biz users need no dropdown
+    if (businesses.length <= 1 || isAdmin) {
+      wrap.style.display = 'none';
+      return;
+    }
+
+    // Multiple businesses — show the select dropdown
+    wrap.style.display = 'flex';
+    const sel = document.getElementById('biz-switcher-select');
+    if (!sel) return;
+
+    const currentId = String(App.currentBiz?.id || App.currentBiz?._id || '');
+    sel.innerHTML = businesses.map(b => {
+      const id = String(b.id || b._id);
+      const label = escHtml(b.trade_name || b.legal_name);
+      return `<option value="${id}" ${id === currentId ? 'selected' : ''}>${label}</option>`;
+    }).join('');
+  },
+
+  async select(id) {
+    const biz = App.businesses.find(b => String(b.id || b._id) === String(id));
+    if (!biz) return;
+    App.currentBiz = biz;
+    localStorage.setItem('gst_biz_id', String(id));
+    App.renderSidebar();
+    App.loadNotifications();
+    toast('Switched to ' + escHtml(biz.trade_name || biz.legal_name), 'success');
+    Pages.navigate(Pages.current || 'dashboard');
+  }
+};
+
+
+// Global helper for switching business from profile page
+function switchBusiness(id) {
+  BizSwitcher.select(id);
+}
