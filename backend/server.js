@@ -14,6 +14,8 @@ const { Server } = require('socket.io');
 const jwt        = require('jsonwebtoken');
 const { initDb } = require('./utils/db');
 const Chat       = require('./models/Chat');
+const Conversation = require('./models/Conversation');
+const Message = require('./models/Message');
 const logger     = require('./utils/logger');
 const swaggerUi  = require('swagger-ui-express');
 const swaggerSpec = require('./utils/swagger');
@@ -21,21 +23,13 @@ const { generateGstResponse } = require('./utils/ai');
 
 const app    = express();
 const server = http.createServer(app);
-
-// Student project note: Using default secret for development
-// Set JWT_SECRET in .env for production
-const SECRET = process.env.JWT_SECRET || (() => {
-  console.warn('⚠️  Using default JWT secret - set JWT_SECRET in .env for production');
-  return 'gst_secret_dev_only';
-})();
+const SECRET = process.env.JWT_SECRET || 'gst_secret';
 
 const io = new Server(server, {
   cors: { origin: '*', methods: ['GET','POST'] },
   pingTimeout: 60000,
   pingInterval: 25000,
 });
-
-
 
 /* ── Middleware ─────────────────────────────────────────────── */
 app.use(helmet({ contentSecurityPolicy: false }));
@@ -46,15 +40,11 @@ app.use(morgan('combined', { stream: { write: msg => logger.http(msg.trim()) } }
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use('/api/', rateLimit({ windowMs: 15*60*1000, max: 500, standardHeaders: true, legacyHeaders: false }));
+
 // Serve static assets but disable auto-serving index.html for '/'
 app.use(express.static(path.join(__dirname, '../'), { index: false }));
 app.use(express.static(path.join(__dirname, '../frontend'), { index: false }));
 app.use(express.static(path.join(__dirname, '../frontend/html'), { index: false }));
-
-// Landing page is the entry point
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/html/landing.html'));
-});
 
 // Swagger API docs
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, { customSiteTitle: 'GST API Docs' }));
@@ -62,6 +52,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, { customSiteT
 /* ── Routes ─────────────────────────────────────────────────── */
 app.use('/api/auth',       require('./routes/auth'));
 app.use('/api/businesses', require('./routes/businesses'));
+app.use('/api/business-requests', require('./routes/business-requests'));
 app.use('/api/parties',    require('./routes/parties'));
 app.use('/api/invoices',   require('./routes/invoices'));
 app.use('/api/purchases',  require('./routes/purchases'));
@@ -76,6 +67,7 @@ app.use('/api/audit',      require('./routes/audit'));
 app.use('/api/users',      require('./routes/users'));
 app.use('/api/tickets',    require('./routes/tickets'));
 app.use('/api/payments',   require('./routes/payments'));
+app.use('/api/chat',       require('./routes/chat'));
 
 const { auth } = require('./middleware/auth');
 
@@ -112,8 +104,51 @@ app.get('/api/backup', auth, (req, res) => {
 
 app.set('io', io);
 
+// Landing page is the entry point
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/html/landing.html'));
+});
+
+// Serve login/app page
+app.get('/login', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/html/index.html'));
+});
+
+// Serve app page
+app.get('/app', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/html/index.html'));
+});
+
+// Serve static pages
+app.get('/landing.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/html/landing.html'));
+});
+
+app.get('/contact.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/html/contact.html'));
+});
+
+app.get('/privacy.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/html/privacy.html'));
+});
+
+app.get('/terms.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/html/terms.html'));
+});
+
+app.get('/support.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/html/support.html'));
+});
+
+app.get('/documentation.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/html/documentation.html'));
+});
+
+// Catch-all for other routes
 app.get('*', (req, res) => {
-  if (!req.path.startsWith('/api')) res.sendFile(path.join(__dirname, '../frontend/html/index.html'));
+  if (!req.path.startsWith('/api')) {
+    res.sendFile(path.join(__dirname, '../frontend/html/landing.html'));
+  }
 });
 
 app.use((err, req, res, next) => {
@@ -130,6 +165,29 @@ const botTimers = new Map(); // room → timeoutId
 const MSG_MAX_LEN = 2000;
 const RATE_LIMIT  = 20;    // max messages per 10s
 const RATE_WINDOW = 10000;
+
+const BOT_REPLIES = [
+  { keywords: ['invoice','bill'],                           message: 'To manage invoices, go to the "Sales Invoices" tab. 📄' },
+  { keywords: ['return','gstr'],                            message: 'GST returns (GSTR-1, GSTR-3B) are under the "GST Returns" tab. 📊' },
+  { keywords: ['hsn','sac'],                                message: 'Search HSN/SAC codes using the "HSN Lookup" tool in the sidebar. 🔍' },
+  { keywords: ['password','login','account'],               message: 'To reset your password, go to Settings or contact the admin. 🔐' },
+  { keywords: ['compliance','deadline','due','overdue'],    message: 'Open the "Compliance" tab to see all upcoming and overdue GST deadlines. 📅' },
+  { keywords: ['purchase','expense'],                       message: 'Track all purchases under the "Purchases" section. 🧾' },
+  { keywords: ['tds'],                                      message: 'Manage TDS entries from the "TDS" module in the sidebar. 💰' },
+  { keywords: ['export','download','pdf','excel','report'], message: 'Use the Export feature to download reports as PDF or Excel. 📥' },
+  { keywords: ['party','supplier','customer','vendor'],     message: 'Manage all parties under the "Parties" section. 👥' },
+  { keywords: ['reconcil'],                                 message: 'Reconcile purchase data with GSTR-2A/2B under the "Reconciliation" tab. ✔' },
+  { keywords: ['hello','hi','hey'],                         message: 'Hello! I am the GST Support Bot 🤖. I can help with invoices, returns, HSN codes, compliance, and more.' },
+  { keywords: ['thank','ok','okay','got it'],               message: "You're welcome! Anything else I can help with? 😊" },
+];
+
+function botReply(userMessage) {
+  const msg = (userMessage || '').toLowerCase();
+  for (const { keywords, message } of BOT_REPLIES) {
+    if (keywords.some(k => msg.includes(k))) return { resolved: true, message };
+  }
+  return { resolved: false, message: "I couldn't fully understand your query. Please describe differently, or I can raise a support ticket for you." };
+}
 
 function broadcastOnlineUsers() {
   const users = [];
@@ -163,6 +221,7 @@ io.on('connection', socket => {
       online.set(socket.id, { userId, userName, role, room: null, activeRoom: null });
       if (role === 'admin') {
         socket.join('admin_watch');
+        console.log(`👮 Admin ${userName} joined admin_watch room`);
         socket.emit('authenticated', { ok: true, role: 'admin' });
         Chat.aggregate([
           { $sort: { created_at: -1 } },
@@ -230,9 +289,12 @@ io.on('connection', socket => {
     }
 
     io.to(data.room).emit('receiveMessage', payload);
+    console.log(`💬 Message sent to room ${data.room} by ${d.userName} (${role})`);
 
     if (role !== 'admin') {
+      console.log(`📨 User message detected, notifying admin_watch...`);
       io.to('admin_watch').emit('newUserMessage', { room: data.room, userId: d.userId, senderName: d.userName, lastMessage: message, lastTime: payload.created_at });
+      console.log(`✅ newUserMessage emitted to admin_watch`);
 
       // Cancel any pending bot reply (user sent another message)
       if (botTimers.has(data.room)) {
@@ -243,15 +305,7 @@ io.on('connection', socket => {
       if (!adminWatchingRoom(data.room)) {
         const timer = setTimeout(async () => {
           botTimers.delete(data.room);
-          
-          let chatContext = [];
-          try {
-            chatContext = await Chat.find({ room: data.room }).sort({ created_at: -1 }).limit(10).lean();
-            chatContext.reverse(); // oldest to newest
-          } catch(err) { console.error('Failed to load chat history for AI:', err.message); }
-
-          const { message: botMessage, resolved } = await generateGstResponse(message, chatContext);
-
+          const { message: botMessage, resolved } = botReply(message);
           if (!resolved) {
             const fail = botFails.get(data.room) || { count: 0, warned: false };
             fail.count++;

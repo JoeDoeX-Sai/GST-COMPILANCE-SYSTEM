@@ -39,14 +39,6 @@
   ═══════════════════════════════════════════════════════════ */
   function init(user) {
     if (initialized || !user) return;
-    
-    // Only initialize for non-admins (Accountant / User mode)
-    const role = user.role || 'user';
-    if (role === 'admin') {
-      console.log('ℹ️ Chatbot disabled in Admin mode.');
-      return;
-    }
-
     initialized = true;
 
     myName = user.name || user.email || 'User';
@@ -85,11 +77,9 @@
 
       <div id="chat-window" class="chat-hidden">
         <div class="chat-header">
-          <div class="chat-header-avatar">
-            <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-          </div>
+          <div class="chat-header-avatar">🧑‍💼</div>
           <div class="chat-header-info">
-            <div class="chat-header-name">Support</div>
+            <div class="chat-header-name">GST Support</div>
             <div class="chat-header-sub">
               <span class="chat-status-dot offline" id="user-status-dot"></span>
               <span id="user-status-text">Connecting…</span>
@@ -100,11 +90,9 @@
 
         <div class="chat-messages" id="chat-messages">
           <div class="chat-empty-state" id="chat-empty">
-            <div class="chat-empty-icon">
-              <svg viewBox="0 0 24 24" fill="currentColor" width="32" height="32"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z"/></svg>
-            </div>
-            <div class="chat-empty-title">Send a message if you need help</div>
-            <div class="chat-empty-sub">Our support team will reply shortly.</div>
+            <div class="chat-empty-icon">💬</div>
+            <div class="chat-empty-title">We're here to help!</div>
+            <div class="chat-empty-sub">Send us a message and our support team will reply shortly.</div>
           </div>
         </div>
 
@@ -340,6 +328,8 @@
         socket.emit('joinRoom', currentRoom);
         setUserStatus(true);
         loadHistory(currentRoom, 'chat-messages');
+      } else {
+        console.log('👮 Admin authenticated, listening for user messages...');
       }
     });
 
@@ -609,10 +599,8 @@
     wrap.className = 'chat-msg recv';
     wrap.innerHTML = `
       <div class="chat-ticket-prompt-card">
-        <div class="chat-ticket-prompt-icon">
-          <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
-        </div>
-        <div class="chat-ticket-prompt-sender">Support Team</div>
+        <div class="chat-ticket-prompt-icon">🤖</div>
+        <div class="chat-ticket-prompt-sender">GST Support Bot</div>
         <div class="chat-ticket-prompt-msg">${escHtml(msg.message)}</div>
         <button class="chat-ticket-prompt-btn" onclick="ChatModule._openTicketForm()">
           🎫 Raise a Support Ticket
@@ -669,6 +657,7 @@
   }
 
   function onNewUserMessage(data) {
+    console.log('📨 Admin received newUserMessage:', data);
     const conv = conversations[data.room] || {};
     conversations[data.room] = {
       name:    data.senderName || conv.name || ('User …' + data.room.slice(-6)),
@@ -679,6 +668,7 @@
                  : 0,
     };
     if (!chatOpen) { fabUnread++; updateFabBadge(); }
+    console.log('✅ Rendering conversation list with', Object.keys(conversations).length, 'conversations');
     renderConvList();
   }
 
@@ -718,9 +708,14 @@
   /* ── Render conversation list ─────────────────────────────── */
   function renderConvList() {
     const list = document.getElementById('admin-conv-list');
-    if (!list) return;
+    if (!list) {
+      console.warn('⚠️ admin-conv-list element not found');
+      return;
+    }
 
     const entries = Object.entries(conversations);
+    console.log('🔄 Rendering conversation list:', entries.length, 'conversations');
+    
     if (entries.length === 0) {
       list.innerHTML = `
         <div class="chat-no-convs">

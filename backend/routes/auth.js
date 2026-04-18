@@ -8,7 +8,10 @@ const { body, validationResult } = require('express-validator');
 
 const validate = (req, res, next) => {
   const errors = validationResult(req);
-  if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
+  if (!errors.isEmpty()) {
+    console.log('Validation errors:', errors.array());
+    return res.status(400).json({ success: false, message: errors.array()[0].msg, errors: errors.array() });
+  }
   next();
 };
 
@@ -23,10 +26,10 @@ router.post('/login', [
     const user = await User.findOne({ email: email.toLowerCase(), active: 1 });
     if (!user || !user.password || !bcrypt.compareSync(password, user.password))
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
-    // Only block unverified users who registered via email (not admin/OAuth/password-reset users)
-    if (user.emailVerified === false && user.emailVerifyToken)
-      return res.status(403).json({ success: false, message: 'Please verify your email before logging in.', unverified: true });
-    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET || 'gst_secret', { expiresIn: '7d' });
+    // Email verification disabled - users can login immediately
+    // if (user.emailVerified === false && user.emailVerifyToken)
+    //   return res.status(403).json({ success: false, message: 'Please verify your email before logging in.', unverified: true });
+    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET || 'gst_secret', { expiresIn: '30m' });
     const ubLinks = await UserBusiness.find({ user_id: user._id });
     const bizIds = ubLinks.map(u => u.business_id);
     const businesses = await Business.find({ _id: { $in: bizIds }, active: 1 }).lean();
@@ -115,7 +118,7 @@ router.post('/register', [
       console.warn('Email send failed:', mailErr.message);
       console.log(`[SIMULATED] Verify token for ${user.email}: ${verifyToken}`);
     }
-    res.json({ success: true, message: 'Account created. Please check your email to verify your account before logging in.' });
+    res.json({ success: true, message: 'Account created successfully! You can now login.' });
   } catch(e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
@@ -168,7 +171,7 @@ router.post('/forgot-password', [
     user.resetPasswordExpires = Date.now() + 3600000;
     await user.save();
     console.log(`\n[SIMULATED EMAIL] To: ${user.email} | Reset Token: ${token}\n`);
-    res.json({ success: true, token, message: 'Reset token generated. Check terminal.' });
+    res.json({ success: true, token, message: `Reset token generated: ${token}` });
   } catch(e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
@@ -196,7 +199,7 @@ const passport = require('passport');
 
 const handleOAuthLogin = (req, res) => {
   if (!req.user) return res.redirect('/#error=oauth_failed');
-  const token = jwt.sign({ id: req.user._id, role: req.user.role }, process.env.JWT_SECRET || 'gst_secret', { expiresIn: '7d' });
+  const token = jwt.sign({ id: req.user._id, role: req.user.role }, process.env.JWT_SECRET || 'gst_secret', { expiresIn: '30m' });
   res.redirect(`/#oauth?token=${token}`);
 };
 

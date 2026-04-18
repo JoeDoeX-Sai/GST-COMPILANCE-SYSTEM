@@ -320,7 +320,7 @@ Pages.register('parties', async () => {
             <select id="par-state"><option value="">Select</option>${Object.entries(STATE_CODES).map(([k,v])=>`<option value="${k}">${k} - ${v}</option>`).join('')}</select>
           </div>
           <div class="form-group"><label>Phone</label><input id="par-phone" placeholder="+91 9999999999"></div>
-          <div class="form-group"><label>Email</label><input id="par-email" type="email" placeholder="email@company.com"></div>
+          <div class="form-group"><label>Email</label><input id="par-email" type="email" placeholder="contact@company.gstin"></div>
           <div class="form-group full"><label>Address</label><textarea id="par-address" rows="2"></textarea></div>
         </div>
       </div>

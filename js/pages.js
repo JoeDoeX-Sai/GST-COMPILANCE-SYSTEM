@@ -65,14 +65,24 @@ const PAGE_TITLES = {
   returns: 'GST Returns', reconcile: 'Reconciliation', parties: 'Parties',
   compliance: 'Compliance Calendar', tds: 'TDS / TCS', analytics: 'Analytics',
   hsn: 'HSN / SAC Lookup', audit: 'Audit Trail', users: 'User Management',
-  businesses: 'Businesses', settings: 'Settings',
+  businesses: 'Businesses', profile: 'Profile', settings: 'Settings',
 };
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
 Pages.register('dashboard', async () => {
   const bizId = App.currentBiz?.id;
   if (!bizId) {
-    document.getElementById('page-content').innerHTML = `
+    const container = document.getElementById('page-content');
+    
+    // Use BusinessRequestModule for non-admin users
+    if (!RBAC.isAdmin() && typeof BusinessRequestModule !== 'undefined') {
+      await BusinessRequestModule.checkPendingStatus();
+      BusinessRequestModule.renderNoBusiness(container);
+      return;
+    }
+    
+    // Admin fallback
+    container.innerHTML = `
       <div class="empty-state-full">
         <div class="empty-state-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -81,14 +91,11 @@ Pages.register('dashboard', async () => {
           </svg>
         </div>
         <h2 class="empty-state-heading">No Business Selected</h2>
-        ${RBAC.isAdmin() ? `
-          <p class="empty-state-desc">Add your first business to start managing GST filings, invoices, and compliance tracking.</p>
-          <button class="btn btn-primary btn-md" onclick="Pages.navigate('businesses')">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Add Business
-          </button>` : `
-          <p class="empty-state-desc">No business has been assigned to your account.</p>
-          <button class="btn btn-secondary btn-md" onclick="ProfilePanel.open();ProfilePanel.switchTab('gst')">Contact Administrator</button>`}
+        <p class="empty-state-desc">Add your first business to start managing GST filings, invoices, and compliance tracking.</p>
+        <button class="btn btn-primary btn-md" onclick="Pages.navigate('businesses')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add Business
+        </button>
       </div>`;
     return;
   }
@@ -234,3 +241,31 @@ function downloadDashboardReport() {
   a.remove();
   toast('Downloading report...', 'info');
 }
+
+// Helper: open support chat for "Contact Administrator" button
+Pages._contactAdmin = function() {
+  if (typeof ChatModule !== 'undefined' && ChatModule.open) {
+    ChatModule.open();
+  } else {
+    // Fallback: open profile panel
+    if (typeof ProfilePanel !== 'undefined') ProfilePanel.open();
+  }
+};
+
+// ─── PROFILE PAGE ─────────────────────────────────────────────────────────────
+Pages.register('profile', async () => {
+  try {
+    const res = await fetch('/html/profile.html');
+    const html = await res.text();
+    document.getElementById('page-content').innerHTML = html;
+    
+    // Load profile data
+    await ProfilePage.load();
+    
+    // Initialize with profile tab active
+    ProfilePage.switchTab('profile');
+  } catch(e) {
+    document.getElementById('page-content').innerHTML = `<div class="alert alert-danger">Failed to load profile page: ${escHtml(e.message)}</div>`;
+  }
+});
+
