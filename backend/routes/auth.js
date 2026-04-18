@@ -97,13 +97,17 @@ router.post('/register', [
     if (existing) return res.status(400).json({ success: false, message: 'Email already in use' });
     const hash = bcrypt.hashSync(password, 10);
     const verifyToken = crypto.randomBytes(32).toString('hex');
+    const isDev = process.env.NODE_ENV !== 'production';
     const user = await User.create({
       name, email: email.toLowerCase(), password: hash, role: 'accountant',
-      emailVerified: false,
-      emailVerifyToken: verifyToken,
-      emailVerifyExpires: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
+      emailVerified: isDev ? true : false,
+      emailVerifyToken: isDev ? undefined : verifyToken,
+      emailVerifyExpires: isDev ? undefined : Date.now() + 24 * 60 * 60 * 1000,
     });
-    // Send verification email
+    if (isDev) {
+      return res.json({ success: true, message: 'Account created successfully. You can now log in.' });
+    }
+    // Send verification email (production only)
     try {
       const { sendVerificationEmail } = require('../utils/mailer');
       await sendVerificationEmail(user.email, user.name, verifyToken);

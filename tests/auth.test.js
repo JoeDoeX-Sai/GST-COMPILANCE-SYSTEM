@@ -62,11 +62,11 @@ describe('POST /api/auth/login', () => {
 });
 
 describe('POST /api/auth/register', () => {
-  it('creates a new user and requires email verification', async () => {
+  it('creates a new user and auto-verifies in dev/test mode', async () => {
     const res = await request(app).post('/api/auth/register').send({ name: 'New User', email: 'newuser@test.com', password: 'Pass@123' });
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.message).toMatch(/verify/i);
+    expect(res.body.message).toMatch(/created/i);
   });
 
   it('rejects duplicate email', async () => {
