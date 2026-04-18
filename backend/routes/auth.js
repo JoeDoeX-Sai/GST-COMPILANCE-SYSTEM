@@ -167,7 +167,7 @@ router.post('/forgot-password', [
     user.resetPasswordExpires = Date.now() + 3600000;
     await user.save();
     console.log(`\n[SIMULATED EMAIL] To: ${user.email} | Reset Token: ${token}\n`);
-    res.json({ success: true, token, message: 'Reset token generated. Check terminal.' });
+    res.json({ success: true, token, message: `Reset token generated: ${token}` });
   } catch(e) { res.status(500).json({ success: false, message: e.message }); }
 });
 

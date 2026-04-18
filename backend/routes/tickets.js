@@ -3,6 +3,69 @@ const router  = express.Router();
 const Ticket  = require('../models/Ticket');
 const { auth } = require('../middleware/auth');
 
+/* ── POST /api/tickets/contact — Public contact form (no auth) ──── */
+router.post('/contact', async (req, res) => {
+  try {
+    const { name, email, subject, description } = req.body;
+    
+    if (!name || !email || !subject || !description) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'All fields are required.' 
+      });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid email format.' 
+      });
+    }
+
+    const ticket = await Ticket.create({
+      userId:      'guest_' + Date.now(),
+      userName:    name.trim().substring(0, 100),
+      userEmail:   email.trim().toLowerCase(),
+      subject:     subject.trim().substring(0, 200),
+      description: description.trim().substring(0, 4000),
+      priority:    'medium',
+      chatRoom:    '',
+      status:      'open',
+    });
+
+    // Notify admin panel via Socket.IO
+    const io = req.app?.get('io');
+    if (io) {
+      io.to('admin_watch').emit('ticketCreated', {
+        ticketId:   ticket.ticketId,
+        userId:     ticket.userId,
+        userName:   ticket.userName,
+        userEmail:  ticket.userEmail,
+        subject:    ticket.subject,
+        priority:   ticket.priority,
+        status:     ticket.status,
+        createdAt:  ticket.createdAt,
+      });
+    }
+
+    console.log(`📧 Contact form ticket created: ${ticket.ticketId} from ${email}`);
+
+    res.status(201).json({ 
+      success: true, 
+      message: 'Your message has been received. We will contact you soon.',
+      ticketId: ticket.ticketId
+    });
+  } catch (e) {
+    console.error('Contact form error:', e.message);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to submit your message. Please try again later.' 
+    });
+  }
+});
+
 /* ── POST /api/tickets — User creates a ticket ─────────────────── */
 router.post('/', auth, async (req, res) => {
   try {

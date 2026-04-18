@@ -72,7 +72,17 @@ const PAGE_TITLES = {
 Pages.register('dashboard', async () => {
   const bizId = App.currentBiz?.id;
   if (!bizId) {
-    document.getElementById('page-content').innerHTML = `
+    const container = document.getElementById('page-content');
+    
+    // Use BusinessRequestModule for non-admin users
+    if (!RBAC.isAdmin() && typeof BusinessRequestModule !== 'undefined') {
+      await BusinessRequestModule.checkPendingStatus();
+      BusinessRequestModule.renderNoBusiness(container);
+      return;
+    }
+    
+    // Admin fallback
+    container.innerHTML = `
       <div class="empty-state-full">
         <div class="empty-state-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -81,14 +91,11 @@ Pages.register('dashboard', async () => {
           </svg>
         </div>
         <h2 class="empty-state-heading">No Business Selected</h2>
-        ${RBAC.isAdmin() ? `
-          <p class="empty-state-desc">Add your first business to start managing GST filings, invoices, and compliance tracking.</p>
-          <button class="btn btn-primary btn-md" onclick="Pages.navigate('businesses')">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Add Business
-          </button>` : `
-          <p class="empty-state-desc">No business has been assigned to your account.</p>
-          <button class="btn btn-secondary btn-md" onclick="ProfilePanel.open();ProfilePanel.switchTab('gst')">Contact Administrator</button>`}
+        <p class="empty-state-desc">Add your first business to start managing GST filings, invoices, and compliance tracking.</p>
+        <button class="btn btn-primary btn-md" onclick="Pages.navigate('businesses')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add Business
+        </button>
       </div>`;
     return;
   }

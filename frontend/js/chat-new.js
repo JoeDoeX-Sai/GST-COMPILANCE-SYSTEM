@@ -591,7 +591,19 @@
   // Public API
   window.ChatModule = {
     init,
-    selectConversation
+    selectConversation,
+    open: function() {
+      const window = document.getElementById(isAdmin ? 'chat-admin-panel' : 'chat-window');
+      if (window && window.classList.contains('hidden')) {
+        toggleChat();
+      }
+    },
+    close: function() {
+      const window = document.getElementById(isAdmin ? 'chat-admin-panel' : 'chat-window');
+      if (window && !window.classList.contains('hidden')) {
+        toggleChat();
+      }
+    }
   };
 
 })();

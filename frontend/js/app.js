@@ -239,6 +239,10 @@ const App = {
     if (savedCur) { CURRENCY.current = savedCur; const sel = document.getElementById('currency-select'); if (sel) sel.value = savedCur; }
     // Init chat
     if (typeof ChatModule !== 'undefined') ChatModule.init(this.user);
+    // Check for pending business requests if no business assigned
+    if (!this.currentBiz && this.user.role !== 'admin' && typeof BusinessRequestModule !== 'undefined') {
+      BusinessRequestModule.checkPendingStatus();
+    }
   },
 
   renderSidebar() {

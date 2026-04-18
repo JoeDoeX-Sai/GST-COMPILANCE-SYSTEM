@@ -14,7 +14,7 @@ Pages.register('users', async () => {
       <div class="modal-body">
         <div class="form-grid">
           <div class="form-group full"><label>Full Name *</label><input id="usr-name" placeholder="John Doe"></div>
-          <div class="form-group full"><label>Email *</label><input id="usr-email" type="email" placeholder="john@company.com"></div>
+          <div class="form-group full"><label>Email *</label><input id="usr-email" type="email" placeholder="user@company.gstin"></div>
           <div class="form-group"><label>Password *</label><input id="usr-password" type="password" placeholder="Min 6 chars"></div>
           <div class="form-group"><label>Role *</label>
             <select id="usr-role">
@@ -469,3 +469,279 @@ async function switchBusiness(id) {
     Pages.navigate('dashboard');
   } catch (e) { toast(e.message, 'error'); }
 }
+
+
+// ─── BUSINESS REQUESTS PAGE ───────────────────────────────────────────────────
+Pages.register('business-requests', async () => {
+  if (!RBAC.isAdmin()) {
+    toast('Admin access required', 'error');
+    Pages.navigate('dashboard');
+    return;
+  }
+
+  document.getElementById('page-content').innerHTML = `
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Business Access Requests</div>
+          <div class="card-sub">Review and manage user access requests</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn ${window._brFilter === 'pending' ? 'btn-primary' : 'btn-secondary'}" onclick="filterBusinessRequests('pending')">
+            Pending
+          </button>
+          <button class="btn ${window._brFilter === 'approved' ? 'btn-primary' : 'btn-secondary'}" onclick="filterBusinessRequests('approved')">
+            Approved
+          </button>
+          <button class="btn ${window._brFilter === 'rejected' ? 'btn-primary' : 'btn-secondary'}" onclick="filterBusinessRequests('rejected')">
+            Rejected
+          </button>
+          <button class="btn ${!window._brFilter ? 'btn-primary' : 'btn-secondary'}" onclick="filterBusinessRequests('')">
+            All
+          </button>
+        </div>
+      </div>
+      <div id="business-requests-table" class="table-wrap"></div>
+    </div>
+    
+    <!-- Approve Modal -->
+    <div class="modal-overlay" id="approve-request-modal">
+      <div class="modal modal-sm">
+        <div class="modal-header">
+          <div class="modal-title">Approve Business Access</div>
+          <button class="btn btn-sm btn-secondary btn-icon" onclick="closeModal('approve-request-modal')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="alert alert-error hidden" id="approve-error"></div>
+          <div class="form-group">
+            <label>Select Business *</label>
+            <select id="approve-business-id" class="form-control">
+              <option value="">-- Select Business --</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Admin Notes (Optional)</label>
+            <textarea id="approve-notes" class="form-control" rows="3" placeholder="Add any notes for this approval..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeModal('approve-request-modal')">Cancel</button>
+          <button class="btn btn-primary" id="approve-submit-btn" onclick="submitApproval()">Approve Request</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Reject Modal -->
+    <div class="modal-overlay" id="reject-request-modal">
+      <div class="modal modal-sm">
+        <div class="modal-header">
+          <div class="modal-title">Reject Business Access</div>
+          <button class="btn btn-sm btn-secondary btn-icon" onclick="closeModal('reject-request-modal')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="alert alert-error hidden" id="reject-error"></div>
+          <div class="form-group">
+            <label>Reason for Rejection (Optional)</label>
+            <textarea id="reject-notes" class="form-control" rows="3" placeholder="Explain why this request is being rejected..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeModal('reject-request-modal')">Cancel</button>
+          <button class="btn btn-danger" id="reject-submit-btn" onclick="submitRejection()">Reject Request</button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  window._brFilter = 'pending';
+  await loadBusinessRequests();
+});
+
+window._brFilter = 'pending';
+window._currentRequestId = null;
+
+async function filterBusinessRequests(status) {
+  window._brFilter = status;
+  await loadBusinessRequests();
+  // Update button states without re-rendering the entire page
+  const buttons = document.querySelectorAll('#page-content .card-header button');
+  buttons.forEach(btn => {
+    const btnText = btn.textContent.trim().toLowerCase();
+    if ((status === 'pending' && btnText === 'pending') ||
+        (status === 'approved' && btnText === 'approved') ||
+        (status === 'rejected' && btnText === 'rejected') ||
+        (status === '' && btnText === 'all')) {
+      btn.classList.remove('btn-secondary');
+      btn.classList.add('btn-primary');
+    } else {
+      btn.classList.remove('btn-primary');
+      btn.classList.add('btn-secondary');
+    }
+  });
+}
+
+async function loadBusinessRequests() {
+  try {
+    const url = window._brFilter ? `/business-requests/all?status=${window._brFilter}` : '/business-requests/all';
+    const res = await API.get(url);
+    const el = document.getElementById('business-requests-table');
+    
+    if (!res.data || res.data.length === 0) {
+      el.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+          </div>
+          <h3>No ${window._brFilter || ''} requests found</h3>
+          <p>There are no business access requests to display.</p>
+        </div>
+      `;
+      return;
+    }
+    
+    el.innerHTML = `
+      <table>
+        <thead>
+          <tr>
+            <th>User</th>
+            <th>Business Name</th>
+            <th>GSTIN</th>
+            <th>Message</th>
+            <th>Status</th>
+            <th>Requested</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${res.data.map(req => `
+            <tr>
+              <td>
+                <div class="font-bold">${escHtml(req.user_name)}</div>
+                <div class="text-xs text-muted">${escHtml(req.user_email)}</div>
+              </td>
+              <td class="font-bold">${escHtml(req.business_name)}</td>
+              <td>${req.gstin ? escHtml(req.gstin) : '<span class="text-muted">—</span>'}</td>
+              <td>${req.message ? escHtml(req.message).substring(0, 50) + (req.message.length > 50 ? '...' : '') : '<span class="text-muted">—</span>'}</td>
+              <td>
+                ${req.status === 'pending' ? '<span class="badge badge-amber">Pending</span>' : ''}
+                ${req.status === 'approved' ? '<span class="badge badge-green">Approved</span>' : ''}
+                ${req.status === 'rejected' ? '<span class="badge badge-red">Rejected</span>' : ''}
+              </td>
+              <td>${fmtDate(req.created_at)}</td>
+              <td>
+                ${req.status === 'pending' ? `
+                  <div style="display:flex;gap:4px">
+                    <button class="btn btn-xs btn-primary" onclick="openApproveModal('${req._id}')">Approve</button>
+                    <button class="btn btn-xs btn-danger" onclick="openRejectModal('${req._id}')">Reject</button>
+                  </div>
+                ` : '<span class="text-muted">—</span>'}
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  } catch (e) {
+    toast(e.message || 'Failed to load requests', 'error');
+  }
+}
+
+async function openApproveModal(requestId) {
+  window._currentRequestId = requestId;
+  
+  // Load businesses for dropdown
+  try {
+    const res = await API.get('/businesses');
+    const select = document.getElementById('approve-business-id');
+    select.innerHTML = '<option value="">-- Select Business --</option>' + 
+      res.data.map(b => `<option value="${b._id}">${escHtml(b.trade_name || b.legal_name)} (${escHtml(b.gstin)})</option>`).join('');
+    
+    document.getElementById('approve-notes').value = '';
+    document.getElementById('approve-error').classList.add('hidden');
+    openModal('approve-request-modal');
+  } catch (e) {
+    toast('Failed to load businesses', 'error');
+  }
+}
+
+async function submitApproval() {
+  const businessId = document.getElementById('approve-business-id').value;
+  const notes = document.getElementById('approve-notes').value.trim();
+  const btn = document.getElementById('approve-submit-btn');
+  const err = document.getElementById('approve-error');
+  
+  err.classList.add('hidden');
+  
+  if (!businessId) {
+    err.textContent = 'Please select a business';
+    err.classList.remove('hidden');
+    return;
+  }
+  
+  btn.disabled = true;
+  btn.textContent = 'Approving...';
+  
+  try {
+    await API.post(`/business-requests/approve/${window._currentRequestId}`, {
+      business_id: businessId,
+      admin_notes: notes
+    });
+    
+    toast('Request approved successfully', 'success');
+    closeModal('approve-request-modal');
+    await loadBusinessRequests();
+  } catch (e) {
+    err.textContent = e.message || 'Failed to approve request';
+    err.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Approve Request';
+  }
+}
+
+async function openRejectModal(requestId) {
+  window._currentRequestId = requestId;
+  document.getElementById('reject-notes').value = '';
+  document.getElementById('reject-error').classList.add('hidden');
+  openModal('reject-request-modal');
+}
+
+async function submitRejection() {
+  const notes = document.getElementById('reject-notes').value.trim();
+  const btn = document.getElementById('reject-submit-btn');
+  const err = document.getElementById('reject-error');
+  
+  err.classList.add('hidden');
+  
+  btn.disabled = true;
+  btn.textContent = 'Rejecting...';
+  
+  try {
+    await API.post(`/business-requests/reject/${window._currentRequestId}`, {
+      admin_notes: notes
+    });
+    
+    toast('Request rejected', 'success');
+    closeModal('reject-request-modal');
+    await loadBusinessRequests();
+  } catch (e) {
+    err.textContent = e.message || 'Failed to reject request';
+    err.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Reject Request';
+  }
+}
+
+// Expose functions globally
+window.filterBusinessRequests = filterBusinessRequests;
+window.openApproveModal = openApproveModal;
+window.submitApproval = submitApproval;
+window.openRejectModal = openRejectModal;
+window.submitRejection = submitRejection;

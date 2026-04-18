@@ -1,8 +1,8 @@
 /* Chat System Styles */
 
 :root {
-  --chat-primary: #25d366;
-  --chat-primary-dark: #128c7e;
+  --chat-primary: #4f7ef8;
+  --chat-primary-dark: #3b6ae0;
   --chat-bg: #f0f2f5;
   --chat-white: #ffffff;
   --chat-text: #111b21;
@@ -24,16 +24,21 @@
   background: linear-gradient(135deg, var(--chat-primary), var(--chat-primary-dark));
   border: none;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(37, 211, 102, 0.4);
+  box-shadow: 0 4px 12px rgba(79, 126, 248, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 9998;
-  transition: transform 0.2s;
+  transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .chat-fab:hover {
   transform: scale(1.1);
+  box-shadow: 0 6px 20px rgba(79, 126, 248, 0.6);
+}
+
+.chat-fab:active {
+  transform: scale(0.95);
 }
 
 .chat-badge {

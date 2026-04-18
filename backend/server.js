@@ -39,6 +39,7 @@ app.use(express.static(path.join(__dirname, '../frontend')));
 
 app.use('/api/auth',       require('./routes/auth'));
 app.use('/api/businesses', require('./routes/businesses'));
+app.use('/api/business-requests', require('./routes/business-requests'));
 app.use('/api/parties',    require('./routes/parties'));
 app.use('/api/invoices',   require('./routes/invoices'));
 app.use('/api/purchases',  require('./routes/purchases'));
@@ -101,6 +102,31 @@ app.get('/app', (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/html/index.html'));
 });
 
+// Serve static pages
+app.get('/landing.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/html/landing.html'));
+});
+
+app.get('/contact.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/html/contact.html'));
+});
+
+app.get('/privacy.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/html/privacy.html'));
+});
+
+app.get('/terms.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/html/terms.html'));
+});
+
+app.get('/support.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/html/support.html'));
+});
+
+app.get('/documentation.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/html/documentation.html'));
+});
+
 // Catch-all for other routes
 app.get('*', (req, res) => {
   if (!req.path.startsWith('/api')) {
@@ -133,7 +159,7 @@ const BOT_REPLIES = [
   { keywords: ['tds'],                                      message: 'Manage TDS entries from the "TDS" module in the sidebar. 💰' },
   { keywords: ['export','download','pdf','excel','report'], message: 'Use the Export feature to download reports as PDF or Excel. 📥' },
   { keywords: ['party','supplier','customer','vendor'],     message: 'Manage all parties under the "Parties" section. 👥' },
-  { keywords: ['reconcil'],                                 message: 'Reconcile purchase data with GSTR-2A/2B under the "Reconciliation" tab. ✅' },
+  { keywords: ['reconcil'],                                 message: 'Reconcile purchase data with GSTR-2A/2B under the "Reconciliation" tab. �' },
   { keywords: ['hello','hi','hey'],                         message: 'Hello! I am the GST Support Bot 🤖. I can help with invoices, returns, HSN codes, compliance, and more.' },
   { keywords: ['thank','ok','okay','got it'],               message: "You're welcome! Anything else I can help with? 😊" },
 ];
@@ -245,12 +271,12 @@ io.on('connection', socket => {
     }
 
     io.to(data.room).emit('receiveMessage', payload);
-    console.log(`✅ Message sent to room ${data.room} by ${d.userName} (${role})`);
+    console.log(`� Message sent to room ${data.room} by ${d.userName} (${role})`);
 
     if (role !== 'admin') {
       console.log(`📨 User message detected, notifying admin_watch...`);
       io.to('admin_watch').emit('newUserMessage', { room: data.room, userId: d.userId, senderName: d.userName, lastMessage: message, lastTime: payload.created_at });
-      console.log(`✅ newUserMessage emitted to admin_watch`);
+      console.log(`� newUserMessage emitted to admin_watch`);
 
       // Cancel any pending bot reply (user sent another message)
       if (botTimers.has(data.room)) {
