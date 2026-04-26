@@ -316,7 +316,7 @@
     
     try {
       const token = localStorage.getItem('gst_token');
-      const res = await fetch(`/api/chat/messages/${currentConversationId}`, {
+      const res = await fetch(`https://gst-compilance-system-backend.onrender.com/api/chat/messages/${currentConversationId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();

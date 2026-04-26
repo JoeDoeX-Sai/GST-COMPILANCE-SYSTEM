@@ -246,6 +246,17 @@ io.on('connection', socket => {
     socket.join(room);
   });
 
+  // Admin joins a specific conversation room to receive real-time messages
+  socket.on('joinConversation', conversationId => {
+    const d = online.get(socket.id);
+    if (!d || d.role !== 'admin') return;
+    const room = `conversation_${conversationId}`;
+    if (d.activeRoom) socket.leave(d.activeRoom);
+    d.activeRoom = room;
+    socket.join(room);
+    console.log(`👮 Admin ${d.userName} joined conversation room: ${room}`);
+  });
+
   socket.on('leaveRoom', room => {
     const d = online.get(socket.id);
     if (d && d.activeRoom === room) { d.activeRoom = null; socket.leave(room); }
