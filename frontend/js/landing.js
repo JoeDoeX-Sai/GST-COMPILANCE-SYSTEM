@@ -33,11 +33,12 @@ document.querySelectorAll('a[href^="#"]').forEach(a => {
     }
   });
 });
-
 // ── Handle #signup hash from nav CTA ──
-document.querySelectorAll('a[href="/index.html#signup"]').forEach(a => {
-  a.addEventListener('click', () => {
+document.querySelectorAll('a[href="index.html#signup"]').forEach(a => {
+  a.addEventListener('click', (e) => {
+    e.preventDefault();
     sessionStorage.setItem('gst_open_signup', '1');
+    window.location.href = 'index.html';
   });
 });
 
