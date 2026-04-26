@@ -237,20 +237,43 @@ async function loadPnL(bizId) {
         </div>
       </div>`;
 
-    if (d.monthly.length && window.Chart) {
+    if (window.Chart) {
       const months = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-      const labels = d.monthly.map(m => `${months[parseInt(m.m)]} ${m.y.slice(-2)}`);
+      let pnlLabels, revenueData, expensesData, profitData;
+
+      if (d.monthly.length) {
+        pnlLabels    = d.monthly.map(m => `${months[parseInt(m.m)]} ${m.y.slice(-2)}`);
+        revenueData  = d.monthly.map(m => m.revenue);
+        expensesData = d.monthly.map(m => m.expenses);
+        profitData   = d.monthly.map(m => m.profit);
+      } else {
+        // Demo data
+        pnlLabels    = ['Apr 24','May 24','Jun 24','Jul 24','Aug 24','Sep 24','Oct 24','Nov 24','Dec 24','Jan 25','Feb 25','Mar 25'];
+        revenueData  = [141600,171100,115640,206500,247800,194700,224200,271400,218300,295000,230100,330400];
+        expensesData = [95000,110000,88000,130000,155000,120000,140000,165000,135000,180000,145000,200000];
+        profitData   = revenueData.map((r,i) => r - expensesData[i]);
+        const titleEl = document.querySelector('#pnl-chart')?.closest('.card')?.querySelector('.card-title');
+        if (titleEl) titleEl.innerHTML = 'Monthly P&L Breakdown <span style="font-size:0.65rem;color:var(--amber);font-weight:500;margin-left:6px">DEMO DATA</span>';
+      }
+
       new Chart(document.getElementById('pnl-chart'), {
         type: 'bar',
         data: {
-          labels,
+          labels: pnlLabels,
           datasets: [
-            { label: 'Revenue', data: d.monthly.map(m=>m.revenue), backgroundColor: 'rgba(34,197,94,0.5)', borderColor: '#22c55e', borderWidth: 1.5 },
-            { label: 'Expenses', data: d.monthly.map(m=>m.expenses), backgroundColor: 'rgba(239,68,68,0.5)', borderColor: '#ef4444', borderWidth: 1.5 },
-            { label: 'Profit', data: d.monthly.map(m=>m.profit), type: 'line', borderColor: '#4f7ef8', backgroundColor: 'rgba(79,126,248,0.1)', borderWidth: 2, fill: true, tension: 0.4 },
+            { label: 'Revenue',  data: revenueData,  backgroundColor: 'rgba(34,197,94,0.5)',  borderColor: '#22c55e', borderWidth: 1.5, borderRadius: 4 },
+            { label: 'Expenses', data: expensesData, backgroundColor: 'rgba(239,68,68,0.5)',  borderColor: '#ef4444', borderWidth: 1.5, borderRadius: 4 },
+            { label: 'Profit',   data: profitData,   type: 'line', borderColor: '#4f7ef8', backgroundColor: 'rgba(79,126,248,0.1)', borderWidth: 2, fill: true, tension: 0.4, pointRadius: 3 },
           ]
         },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#9ba3c4', font: { size: 11 } } } }, scales: { x: { ticks: { color: '#9ba3c4' }, grid: { color: 'rgba(46,53,84,0.6)' } }, y: { ticks: { color: '#9ba3c4' }, grid: { color: 'rgba(46,53,84,0.6)' } } } }
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: '#9ba3c4', font: { size: 11 } } } },
+          scales: {
+            x: { ticks: { color: '#9ba3c4', font: { size: 10 } }, grid: { color: 'rgba(46,53,84,0.6)' } },
+            y: { ticks: { color: '#9ba3c4', font: { size: 10 }, callback: v => '₹' + (v>=100000 ? (v/100000).toFixed(1)+'L' : (v/1000).toFixed(0)+'K') }, grid: { color: 'rgba(46,53,84,0.6)' } }
+          }
+        }
       });
     }
   } catch(e) { el.innerHTML = `<div class="alert alert-danger">${e.message}</div>`; }

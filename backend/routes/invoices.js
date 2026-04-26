@@ -54,10 +54,19 @@ router.post('/', auth, requireRole('admin','accountant'), requireBizAccess, audi
   } catch(e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
-router.get('/:id', auth, async (req, res) => {
+router.get('/:id', auth, requireBizAccess, async (req, res) => {
   try {
     const inv = await Invoice.findById(req.params.id).lean();
     if (!inv) return res.status(404).json({ success: false, message: 'Not found' });
+    
+    // Check business access for non-admins
+    if (req.user.role !== 'admin') {
+      const bizId = req.query.business_id || inv.business_id;
+      if (String(inv.business_id) !== String(bizId)) {
+        return res.status(403).json({ success: false, message: 'Access denied' });
+      }
+    }
+    
     norm(inv);
     const items = await InvoiceItem.find({ invoice_id: req.params.id }).lean();
     items.forEach(norm);
@@ -66,11 +75,21 @@ router.get('/:id', auth, async (req, res) => {
   } catch(e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
-router.put('/:id', auth, requireRole('admin','accountant'), async (req, res) => {
+router.put('/:id', auth, requireRole('admin','accountant'), requireBizAccess, async (req, res) => {
   try {
     const inv = await Invoice.findById(req.params.id);
     if (!inv) return res.status(404).json({ success: false, message: 'Not found' });
     if (inv.status === 'cancelled') return res.status(400).json({ success: false, message: 'Cannot edit cancelled invoice' });
+    if (inv.status === 'confirmed') return res.status(400).json({ success: false, message: 'Cannot edit confirmed invoice' });
+    
+    // Check business access for non-admins
+    if (req.user.role !== 'admin') {
+      const bizId = req.body.business_id || req.query.business_id;
+      if (String(inv.business_id) !== String(bizId)) {
+        return res.status(403).json({ success: false, message: 'Access denied' });
+      }
+    }
+    
     const { invoice_date, party_id, party_name, party_gstin, party_state_code, place_of_supply, items, notes, tds_amount, tcs_amount, supply_type } = req.body;
     const business = await Business.findById(inv.business_id);
     const totals = calcInvoiceTotals(items || [], supply_type || inv.supply_type, business.state_code, party_state_code || inv.party_state_code);
@@ -83,10 +102,20 @@ router.put('/:id', auth, requireRole('admin','accountant'), async (req, res) => 
   } catch(e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
-router.patch('/:id/confirm', auth, requireRole('admin','accountant'), async (req, res) => {
+router.patch('/:id/confirm', auth, requireRole('admin','accountant'), requireBizAccess, async (req, res) => {
   try {
     const inv = await Invoice.findById(req.params.id);
     if (!inv) return res.status(404).json({ success: false, message: 'Not found' });
+    if (inv.status !== 'draft') return res.status(400).json({ success: false, message: 'Only draft invoices can be confirmed' });
+    
+    // Check business access for non-admins
+    if (req.user.role !== 'admin') {
+      const bizId = req.body.business_id || req.query.business_id;
+      if (String(inv.business_id) !== String(bizId)) {
+        return res.status(403).json({ success: false, message: 'Access denied' });
+      }
+    }
+    
     const business = await Business.findById(inv.business_id);
     const irn = generateIRN(business.gstin, inv.invoice_number, getFinancialYear(inv.invoice_date));
     await Invoice.findByIdAndUpdate(req.params.id, { status: 'confirmed', irn, ack_no: `ACK${Date.now()}`, ack_date: new Date() });
@@ -99,11 +128,24 @@ router.patch('/:id/cancel', auth, requireRole('admin','accountant'), async (req,
   res.json({ success: true, message: 'Invoice cancelled' });
 });
 
-router.delete('/:id', auth, requireRole('admin'), async (req, res) => {
-  const inv = await Invoice.findById(req.params.id);
-  if (inv?.status === 'confirmed') return res.status(400).json({ success: false, message: 'Cannot delete confirmed invoice. Cancel first.' });
-  await Invoice.findByIdAndDelete(req.params.id);
-  res.json({ success: true, message: 'Deleted' });
+router.delete('/:id', auth, requireRole('admin','accountant'), requireBizAccess, async (req, res) => {
+  try {
+    const inv = await Invoice.findById(req.params.id);
+    if (!inv) return res.status(404).json({ success: false, message: 'Not found' });
+    if (inv.status === 'confirmed') return res.status(400).json({ success: false, message: 'Cannot delete confirmed invoice. Cancel first.' });
+    
+    // Check business access for non-admins
+    if (req.user.role !== 'admin') {
+      const bizId = req.query.business_id;
+      if (String(inv.business_id) !== String(bizId)) {
+        return res.status(403).json({ success: false, message: 'Access denied' });
+      }
+    }
+    
+    await InvoiceItem.deleteMany({ invoice_id: req.params.id });
+    await Invoice.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: 'Invoice deleted successfully' });
+  } catch(e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
 module.exports = router;

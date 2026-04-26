@@ -211,18 +211,42 @@ async function loadAnalytics() {
       API.get('/analytics/dashboard', { business_id: bizId })
     ]);
 
-    if (trend.data?.length && window.Chart) {
+    if (window.Chart) {
+      let trendLabels, cgstData, sgstData, igstData;
+
+      if (trend.data?.length) {
+        trendLabels = trend.data.map(r => r.period);
+        cgstData    = trend.data.map(r => r.cgst);
+        sgstData    = trend.data.map(r => r.sgst);
+        igstData    = trend.data.map(r => r.igst);
+      } else {
+        // Demo data
+        trendLabels = ['Apr 24','May 24','Jun 24','Jul 24','Aug 24','Sep 24','Oct 24','Nov 24','Dec 24','Jan 25','Feb 25','Mar 25'];
+        cgstData    = [8500,9200,7800,11000,13500,10800,12200,14500,11800,16000,12500,18000];
+        sgstData    = [8500,9200,7800,11000,13500,10800,12200,14500,11800,16000,12500,18000];
+        igstData    = [4600,7700,2040,9500,10800,8100,9800,12400,9700,13000,10100,14400];
+        const titleEl = document.querySelector('#tax-trend-chart')?.closest('.card')?.querySelector('.card-title');
+        if (titleEl) titleEl.innerHTML = 'Tax Trend (12 months) <span style="font-size:0.65rem;color:var(--amber);font-weight:500;margin-left:6px">DEMO DATA</span>';
+      }
+
       new Chart(document.getElementById('tax-trend-chart'), {
         type: 'line',
         data: {
-          labels: trend.data.map(r => r.period),
+          labels: trendLabels,
           datasets: [
-            { label: 'CGST', data: trend.data.map(r=>r.cgst), borderColor: '#4f7ef8', backgroundColor: 'rgba(79,126,248,0.1)', tension: 0.4, fill: true },
-            { label: 'SGST', data: trend.data.map(r=>r.sgst), borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.1)', tension: 0.4, fill: true },
-            { label: 'IGST', data: trend.data.map(r=>r.igst), borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.1)', tension: 0.4, fill: true },
+            { label: 'CGST', data: cgstData, borderColor: '#4f7ef8', backgroundColor: 'rgba(79,126,248,0.1)', tension: 0.4, fill: true, pointRadius: 3 },
+            { label: 'SGST', data: sgstData, borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.1)', tension: 0.4, fill: true, pointRadius: 3 },
+            { label: 'IGST', data: igstData, borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.1)', tension: 0.4, fill: true, pointRadius: 3 },
           ]
         },
-        options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{color:'#9ba3c4'}}}, scales:{ x:{ticks:{color:'#9ba3c4'},grid:{color:'rgba(46,53,84,0.6)'}}, y:{ticks:{color:'#9ba3c4'},grid:{color:'rgba(46,53,84,0.6)'}} } }
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: '#9ba3c4', font: { size: 11 } } } },
+          scales: {
+            x: { ticks: { color: '#9ba3c4', font: { size: 10 } }, grid: { color: 'rgba(46,53,84,0.6)' } },
+            y: { ticks: { color: '#9ba3c4', font: { size: 10 }, callback: v => '₹' + (v/1000).toFixed(0)+'K' }, grid: { color: 'rgba(46,53,84,0.6)' } }
+          }
+        }
       });
     }
 

@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node backend/server.js",
     "dev": "nodemon backend/server.js",
-    "test": "jest --testTimeout=30000 --forceExit --runInBand"
+    "test": "jest --testTimeout=30000 --forceExit --runInBand",
+    "seed": "node backend/utils/seedData.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

@@ -34,7 +34,7 @@ const API = {
   post: (path, body) => API.req('POST', path, body),
   put: (path, body) => API.req('PUT', path, body),
   patch: (path, body) => API.req('PATCH', path, body),
-  delete: (path) => API.req('DELETE', path),
+  delete: (path, params) => API.req('DELETE', path, null, params),
 };
 
 // HTML escape helper — prevents XSS when injecting user/API data into innerHTML

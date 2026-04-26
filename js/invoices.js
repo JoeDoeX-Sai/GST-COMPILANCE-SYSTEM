@@ -53,6 +53,12 @@ async function loadInvoices(page = 1) {
     const res = await API.get('/invoices', params);
     const wrap = document.getElementById('inv-table-wrap');
     if (!res.data?.length) { wrap.innerHTML = `<div class="empty-state"><div class="empty-title">No invoices found</div><div class="empty-sub">Create your first invoice using the button above.</div></div>`; return; }
+    
+    // Ensure all invoices have proper ID field
+    res.data.forEach(inv => {
+      if (!inv.id && inv._id) inv.id = String(inv._id);
+    });
+    
     wrap.innerHTML = `<table>
       <thead><tr>
         <th>Invoice No</th><th>Date</th><th>Party</th><th>GSTIN</th><th>Type</th>
@@ -61,22 +67,22 @@ async function loadInvoices(page = 1) {
       </tr></thead>
       <tbody>
         ${res.data.map(inv => `<tr>
-          <td class="font-mono">${inv.invoice_number}</td>
+          <td class="font-mono">${escHtml(inv.invoice_number)}</td>
           <td>${fmtDate(inv.invoice_date)}</td>
-          <td style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${inv.party_name||inv.party_name_resolved||'—'}</td>
-          <td class="font-mono text-xs">${inv.party_gstin||'—'}</td>
-          <td><span class="badge badge-blue">${inv.invoice_type}</span></td>
+          <td style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(inv.party_name||inv.party_name_resolved||'—')}</td>
+          <td class="font-mono text-xs">${escHtml(inv.party_gstin||'—')}</td>
+          <td><span class="badge badge-blue">${escHtml(inv.invoice_type)}</span></td>
           <td class="text-right amount">${fmtAmount(inv.taxable_value)}</td>
           <td class="text-right amount">${fmtAmount((inv.cgst||0)+(inv.sgst||0)+(inv.igst||0))}</td>
           <td class="text-right amount font-bold">${fmtAmount(inv.total_amount)}</td>
           <td>${statusBadge(inv.status)}</td>
           <td>
             <div style="display:flex;gap:4px">
-              <button class="btn btn-xs btn-secondary" onclick="viewInvoice(${inv.id})">View</button>
-              ${inv.status==='draft'?`<button class="btn btn-xs btn-secondary" onclick="editInvoice(${inv.id})">Edit</button>`:''}
-              ${inv.status==='draft'?`<button class="btn btn-xs btn-success" onclick="confirmInvoice(${inv.id})">Confirm</button>`:''}
-              <button class="btn btn-xs btn-secondary" onclick="downloadInvoicePDF(${inv.id},'${inv.invoice_number}')">PDF</button>
-              ${inv.status!=='confirmed'?`<button class="btn btn-xs btn-danger" onclick="deleteInvoice(${inv.id})">Delete</button>`:''}
+              <button class="btn btn-xs btn-secondary" onclick="viewInvoice('${inv.id}')">View</button>
+              ${inv.status==='draft' && RBAC.canWrite() ? `<button class="btn btn-xs btn-secondary" onclick="editInvoice('${inv.id}')">Edit</button>` : ''}
+              ${inv.status==='draft' && RBAC.canWrite() ? `<button class="btn btn-xs btn-success" onclick="confirmInvoice('${inv.id}')">Confirm</button>` : ''}
+              <button class="btn btn-xs btn-secondary" onclick="downloadInvoicePDF('${inv.id}','${escHtml(inv.invoice_number)}')">PDF</button>
+              ${inv.status!=='confirmed' && RBAC.canWrite() ? `<button class="btn btn-xs btn-danger" onclick="deleteInvoice('${inv.id}')">Delete</button>` : ''}
             </div>
           </td>
         </tr>`).join('')}
@@ -217,9 +223,21 @@ function openInvoiceModal(inv = null) {
 
 async function editInvoice(id) {
   try {
-    const res = await API.get(`/invoices/${id}`);
-    if (res.data) openInvoiceModal(res.data);
-  } catch(e) { toast(e.message, 'error'); }
+    const bizId = App.currentBiz?.id;
+    if (!bizId) {
+      toast('No business selected', 'error');
+      return;
+    }
+    const res = await API.get(`/invoices/${id}`, { business_id: bizId });
+    if (res.data) {
+      // Ensure ID is properly set
+      if (!res.data.id && res.data._id) res.data.id = String(res.data._id);
+      openInvoiceModal(res.data);
+    }
+  } catch(e) { 
+    console.error('Edit invoice error:', e);
+    toast(e.message || 'Failed to load invoice', 'error'); 
+  }
 }
 
 function renderInvItems() {
@@ -332,47 +350,73 @@ async function saveInvoice() {
 }
 
 async function confirmInvoice(id) {
-  confirmModal('Confirm Invoice', 'This will generate an IRN. Continue?', async () => {
+  if (!RBAC.canWrite()) {
+    toast('You do not have permission to confirm invoices', 'error');
+    return;
+  }
+  
+  confirmModal('Confirm Invoice', 'This will generate an IRN and the invoice cannot be edited. Continue?', async () => {
     try {
-      const res = await API.patch(`/invoices/${id}/confirm`);
-      toast(`Invoice confirmed. IRN: ${res.data?.irn?.substring(0,16)}...`, 'success');
-      loadInvoices();
-    } catch(e) { toast(e.message, 'error'); }
+      const bizId = App.currentBiz?.id;
+      if (!bizId) {
+        toast('No business selected', 'error');
+        return;
+      }
+      const res = await API.patch(`/invoices/${id}/confirm`, { business_id: bizId });
+      toast(`Invoice confirmed successfully. IRN: ${res.data?.irn?.substring(0,16)}...`, 'success');
+      loadInvoices(invoicePage);
+    } catch(e) { 
+      console.error('Confirm invoice error:', e);
+      toast(e.message || 'Failed to confirm invoice', 'error'); 
+    }
   });
 }
 
 async function viewInvoice(id) {
   try {
-    const res = await API.get(`/invoices/${id}`);
+    const bizId = App.currentBiz?.id;
+    if (!bizId) {
+      toast('No business selected', 'error');
+      return;
+    }
+    const res = await API.get(`/invoices/${id}`, { business_id: bizId });
     const inv = res.data;
+    if (!inv) {
+      toast('Invoice not found', 'error');
+      return;
+    }
+    
+    // Ensure ID is properly set
+    if (!inv.id && inv._id) inv.id = String(inv._id);
+    
     const biz = App.currentBiz;
     const modal = document.createElement('div');
     modal.className = 'modal-overlay open';
     modal.innerHTML = `<div class="modal" style="max-width:680px">
-      <div class="modal-header"><div class="modal-title">Invoice: ${inv.invoice_number}</div><button class="btn btn-sm btn-secondary btn-icon" onclick="this.closest('.modal-overlay').remove()" aria-label="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+      <div class="modal-header"><div class="modal-title">Invoice: ${escHtml(inv.invoice_number)}</div><button class="btn btn-sm btn-secondary btn-icon" onclick="this.closest('.modal-overlay').remove()" aria-label="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
       <div class="modal-body">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
           <div class="card"><div class="card-body" style="padding:12px">
             <div class="text-xs text-muted mb-2">Seller</div>
-            <div class="font-bold">${biz?.legal_name||''}</div>
-            <div class="text-sm font-mono text-muted">${biz?.gstin||''}</div>
+            <div class="font-bold">${escHtml(biz?.legal_name||'')}</div>
+            <div class="text-sm font-mono text-muted">${escHtml(biz?.gstin||'')}</div>
           </div></div>
           <div class="card"><div class="card-body" style="padding:12px">
             <div class="text-xs text-muted mb-2">Buyer</div>
-            <div class="font-bold">${inv.party_name||'—'}</div>
-            <div class="text-sm font-mono text-muted">${inv.party_gstin||'—'}</div>
+            <div class="font-bold">${escHtml(inv.party_name||'—')}</div>
+            <div class="text-sm font-mono text-muted">${escHtml(inv.party_gstin||'—')}</div>
           </div></div>
         </div>
         <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px">
           <div><span class="text-muted text-xs">Date</span><div class="font-bold">${fmtDate(inv.invoice_date)}</div></div>
-          <div><span class="text-muted text-xs">Type</span><div><span class="badge badge-blue">${inv.invoice_type}</span></div></div>
-          <div><span class="text-muted text-xs">Supply</span><div class="font-bold">${inv.supply_type}</div></div>
+          <div><span class="text-muted text-xs">Type</span><div><span class="badge badge-blue">${escHtml(inv.invoice_type)}</span></div></div>
+          <div><span class="text-muted text-xs">Supply</span><div class="font-bold">${escHtml(inv.supply_type)}</div></div>
           <div><span class="text-muted text-xs">Status</span><div>${statusBadge(inv.status)}</div></div>
-          ${inv.irn?`<div><span class="text-muted text-xs">IRN</span><div class="font-mono text-xs">${inv.irn?.substring(0,24)}...</div></div>`:''}
+          ${inv.irn?`<div><span class="text-muted text-xs">IRN</span><div class="font-mono text-xs">${escHtml(inv.irn?.substring(0,24))}...</div></div>`:''}
         </div>
         <div class="table-wrap"><table>
           <thead><tr><th>Description</th><th>HSN</th><th>Qty</th><th class="text-right">Rate</th><th class="text-right">Taxable</th><th class="text-right">Tax</th><th class="text-right">Total</th></tr></thead>
-          <tbody>${inv.items?.map(it=>`<tr><td>${it.description}</td><td class="font-mono text-xs">${it.hsn_sac||'—'}</td><td>${it.quantity}</td><td class="text-right font-mono">${fmtAmount(it.unit_price)}</td><td class="text-right font-mono">${fmtAmount(it.taxable_value)}</td><td class="text-right font-mono">${fmtAmount((it.cgst||0)+(it.sgst||0)+(it.igst||0))}</td><td class="text-right font-mono font-bold">${fmtAmount(it.total)}</td></tr>`).join('')}</tbody>
+          <tbody>${inv.items?.map(it=>`<tr><td>${escHtml(it.description)}</td><td class="font-mono text-xs">${escHtml(it.hsn_sac||'—')}</td><td>${it.quantity}</td><td class="text-right font-mono">${fmtAmount(it.unit_price)}</td><td class="text-right font-mono">${fmtAmount(it.taxable_value)}</td><td class="text-right font-mono">${fmtAmount((it.cgst||0)+(it.sgst||0)+(it.igst||0))}</td><td class="text-right font-mono font-bold">${fmtAmount(it.total)}</td></tr>`).join('')}</tbody>
         </table></div>
         <div style="text-align:right;margin-top:12px">
           <div class="text-sm text-muted">Taxable: <span class="font-mono">${fmtAmount(inv.taxable_value)}</span></div>
@@ -383,23 +427,57 @@ async function viewInvoice(id) {
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="downloadInvoicePDF(${inv.id},'${inv.invoice_number}')">Download PDF</button>
+        <button class="btn btn-secondary" onclick="downloadInvoicePDF('${inv.id}','${escHtml(inv.invoice_number)}')">Download PDF</button>
         <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Close</button>
       </div>
     </div>`;
     document.body.appendChild(modal);
-  } catch(e) { toast(e.message, 'error'); }
+  } catch(e) { 
+    console.error('View invoice error:', e);
+    toast(e.message || 'Failed to load invoice', 'error'); 
+  }
 }
 
 async function deleteInvoice(id) {
-  confirmModal('Delete Invoice', 'This action cannot be undone.', async () => {
-    try { await API.delete(`/invoices/${id}`); toast('Deleted', 'success'); loadInvoices(); }
-    catch(e) { toast(e.message, 'error'); }
+  if (!RBAC.canWrite()) {
+    toast('You do not have permission to delete invoices', 'error');
+    return;
+  }
+  
+  confirmModal('Delete Invoice', 'This action cannot be undone. Are you sure?', async () => {
+    try {
+      const bizId = App.currentBiz?.id;
+      if (!bizId) {
+        toast('No business selected', 'error');
+        return;
+      }
+      await API.delete(`/invoices/${id}`, { business_id: bizId });
+      toast('Invoice deleted successfully', 'success');
+      loadInvoices(invoicePage);
+    } catch(e) { 
+      console.error('Delete invoice error:', e);
+      toast(e.message || 'Failed to delete invoice', 'error'); 
+    }
   });
 }
 
 async function downloadInvoicePDF(id, num) {
-  window.open(`/api/export/invoice/${id}/pdf?token=${App.token||API.token()}`, '_blank');
+  try {
+    const bizId = App.currentBiz?.id;
+    if (!bizId) {
+      toast('No business selected', 'error');
+      return;
+    }
+    const token = API.token();
+    if (!token) {
+      toast('Authentication required', 'error');
+      return;
+    }
+    window.open(`/api/export/invoice/${id}/pdf?business_id=${bizId}&token=${token}`, '_blank');
+  } catch(e) {
+    console.error('Download PDF error:', e);
+    toast('Failed to download PDF', 'error');
+  }
 }
 
 async function exportInvoicesExcel() {

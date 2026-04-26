@@ -194,32 +194,77 @@ Pages.register('dashboard', async () => {
       </div>
     </div>`;
 
-    // Monthly chart
-    if (d.monthly?.length && window.Chart) {
-      const labels = d.monthly.map(r => `${['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(r.m)]} ${r.y.slice(-2)}`);
+    // ── Monthly Sales & Tax Chart ──────────────────────────────────────────
+    if (window.Chart) {
+      const monthNames = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      let monthLabels, taxableData, taxData;
+
+      if (d.monthly?.length) {
+        // Real data from DB
+        monthLabels = d.monthly.map(r => `${monthNames[parseInt(r.m)]} ${r.y.slice(-2)}`);
+        taxableData = d.monthly.map(r => r.taxable);
+        taxData     = d.monthly.map(r => r.tax);
+      } else {
+        // Demo data — shown when no invoices exist yet
+        monthLabels = ['Apr 24','May 24','Jun 24','Jul 24','Aug 24','Sep 24','Oct 24','Nov 24','Dec 24','Jan 25','Feb 25','Mar 25'];
+        taxableData = [120000,145000,98000,175000,210000,165000,190000,230000,185000,250000,195000,280000];
+        taxData     = [21600,26100,17640,31500,37800,29700,34200,41400,33300,45000,35100,50400];
+        // Add demo label to chart title
+        const titleEl = document.querySelector('#monthly-chart')?.closest('.card')?.querySelector('.card-title');
+        if (titleEl) titleEl.innerHTML = 'Monthly Sales & Tax <span style="font-size:0.65rem;color:var(--amber);font-weight:500;margin-left:6px">DEMO DATA</span>';
+      }
+
       new Chart(document.getElementById('monthly-chart'), {
         type: 'bar',
         data: {
-          labels,
+          labels: monthLabels,
           datasets: [
-            { label: 'Taxable Value', data: d.monthly.map(r=>r.taxable), backgroundColor: 'rgba(79,126,248,0.5)', borderColor: '#4f7ef8', borderWidth: 1.5 },
-            { label: 'Tax Collected', data: d.monthly.map(r=>r.tax), backgroundColor: 'rgba(34,197,94,0.5)', borderColor: '#22c55e', borderWidth: 1.5 }
+            { label: 'Taxable Value', data: taxableData, backgroundColor: 'rgba(79,126,248,0.5)', borderColor: '#4f7ef8', borderWidth: 1.5, borderRadius: 4 },
+            { label: 'Tax Collected', data: taxData, backgroundColor: 'rgba(34,197,94,0.5)', borderColor: '#22c55e', borderWidth: 1.5, borderRadius: 4 }
           ]
         },
-        options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{color:'#9ba3c4',font:{size:11}}}}, scales:{ x:{ticks:{color:'#9ba3c4',font:{size:10}},grid:{color:'rgba(46,53,84,0.6)'}}, y:{ticks:{color:'#9ba3c4',font:{size:10}},grid:{color:'rgba(46,53,84,0.6)'}} } }
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: '#9ba3c4', font: { size: 11 } } } },
+          scales: {
+            x: { ticks: { color: '#9ba3c4', font: { size: 10 } }, grid: { color: 'rgba(46,53,84,0.6)' } },
+            y: { ticks: { color: '#9ba3c4', font: { size: 10 }, callback: v => '₹' + (v>=100000 ? (v/100000).toFixed(1)+'L' : (v/1000).toFixed(0)+'K') }, grid: { color: 'rgba(46,53,84,0.6)' } }
+          }
+        }
       });
     }
 
-    // Supply type donut
-    if (d.by_supply_type?.length && window.Chart) {
+    // ── Supply Type Doughnut Chart ─────────────────────────────────────────
+    if (window.Chart) {
       const colors = ['#4f7ef8','#22c55e','#f59e0b','#ef4444','#a78bfa'];
+      let supplyLabels, supplyData;
+
+      if (d.by_supply_type?.length) {
+        // Real data
+        supplyLabels = d.by_supply_type.map(r => r.supply_type?.toUpperCase());
+        supplyData   = d.by_supply_type.map(r => r.taxable);
+      } else {
+        // Demo data
+        supplyLabels = ['INTRA', 'INTER', 'EXPORT'];
+        supplyData   = [850000, 420000, 130000];
+        const titleEl = document.querySelector('#supply-chart')?.closest('.card')?.querySelector('.card-title');
+        if (titleEl) titleEl.innerHTML = 'Supply Type Breakdown <span style="font-size:0.65rem;color:var(--amber);font-weight:500;margin-left:6px">DEMO DATA</span>';
+      }
+
       new Chart(document.getElementById('supply-chart'), {
         type: 'doughnut',
         data: {
-          labels: d.by_supply_type.map(r=>r.supply_type?.toUpperCase()),
-          datasets: [{ data: d.by_supply_type.map(r=>r.taxable), backgroundColor: colors, borderWidth: 0 }]
+          labels: supplyLabels,
+          datasets: [{ data: supplyData, backgroundColor: colors, borderWidth: 0, hoverOffset: 6 }]
         },
-        options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'right', labels:{color:'#9ba3c4',font:{size:11}} } } }
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          cutout: '65%',
+          plugins: {
+            legend: { position: 'right', labels: { color: '#9ba3c4', font: { size: 11 }, padding: 14 } },
+            tooltip: { callbacks: { label: ctx => ` ₹${ctx.parsed.toLocaleString('en-IN')}` } }
+          }
+        }
       });
     }
   } catch(e) {

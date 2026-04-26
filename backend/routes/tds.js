@@ -46,8 +46,17 @@ router.get('/summary', auth, requireBizAccess, async (req, res) => {
 });
 
 router.delete('/:id', auth, async (req, res) => {
-  await TdsTcs.findByIdAndDelete(req.params.id);
-  res.json({ success: true, message: 'Deleted' });
+  try {
+    const existing = await TdsTcs.findById(req.params.id).lean();
+    if (!existing) return res.status(404).json({ success: false, message: 'TDS entry not found' });
+    if (req.user.role !== 'admin') {
+      const { UserBusiness } = require('../utils/db');
+      const link = await UserBusiness.findOne({ user_id: req.user._id, business_id: existing.business_id });
+      if (!link) return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+    await TdsTcs.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: 'Deleted' });
+  } catch(e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
 module.exports = router;

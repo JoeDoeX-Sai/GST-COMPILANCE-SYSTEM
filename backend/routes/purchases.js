@@ -33,6 +33,14 @@ router.post('/', auth, requireBizAccess, async (req, res) => {
 router.put('/:id', auth, async (req, res) => {
   try {
     const { invoice_number, invoice_date, supplier_name, party_gstin, taxable_value, cgst, sgst, igst, cess, itc_eligible } = req.body;
+    // Verify the purchase belongs to a business the user has access to
+    const existing = await Purchase.findById(req.params.id).lean();
+    if (!existing) return res.status(404).json({ success: false, message: 'Purchase not found' });
+    if (req.user.role !== 'admin') {
+      const { UserBusiness } = require('../utils/db');
+      const link = await UserBusiness.findOne({ user_id: req.user._id, business_id: existing.business_id });
+      if (!link) return res.status(403).json({ success: false, message: 'Access denied' });
+    }
     const total = parseFloat((parseFloat(taxable_value)+parseFloat(cgst)+parseFloat(sgst)+parseFloat(igst)+parseFloat(cess||0)).toFixed(2));
     await Purchase.findByIdAndUpdate(req.params.id, { invoice_number, invoice_date, supplier_name, party_gstin, taxable_value, cgst, sgst, igst, cess: cess||0, total_amount: total, itc_eligible: itc_eligible?1:0 });
     res.json({ success: true, message: 'Updated' });
@@ -40,8 +48,17 @@ router.put('/:id', auth, async (req, res) => {
 });
 
 router.delete('/:id', auth, async (req, res) => {
-  await Purchase.findByIdAndDelete(req.params.id);
-  res.json({ success: true, message: 'Deleted' });
+  try {
+    const existing = await Purchase.findById(req.params.id).lean();
+    if (!existing) return res.status(404).json({ success: false, message: 'Purchase not found' });
+    if (req.user.role !== 'admin') {
+      const { UserBusiness } = require('../utils/db');
+      const link = await UserBusiness.findOne({ user_id: req.user._id, business_id: existing.business_id });
+      if (!link) return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+    await Purchase.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: 'Deleted' });
+  } catch(e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
 module.exports = router;
