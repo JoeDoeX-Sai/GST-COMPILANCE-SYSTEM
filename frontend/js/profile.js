@@ -492,9 +492,9 @@ const ProfilePanel = {
     
     try {
       const res = await API.put('/auth/profile', { name, phone });
-      App.user = res.user;
+      App.user = res.user || res.data;
       this.loadData();
-      App.updateUI();
+      App.renderSidebar();
       msg.innerHTML = '<div class="alert alert-success">Profile updated successfully</div>';
       setTimeout(() => msg.innerHTML = '', 3000);
     } catch(e) {

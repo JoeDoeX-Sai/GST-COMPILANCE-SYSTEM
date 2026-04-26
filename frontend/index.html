@@ -48,8 +48,8 @@
     <li><a href="#how">How it Works</a></li>
   </ul>
   <div class="nav-actions">
-    <a href="/login" class="btn btn-ghost">Login</a>
-    <a href="/login#signup" class="btn btn-primary" id="nav-cta">Create Account â†’</a>
+    <a href="#" class="btn btn-ghost" onclick="showLoginScreen()">Login</a>
+    <a href="#" class="btn btn-primary" id="nav-cta" onclick="showSignupScreen()">Create Account â†’</a>
   </div>
   <button class="nav-hamburger" id="hamburger" aria-label="Toggle menu">â˜°</button>
 </nav>
@@ -64,7 +64,7 @@
     <h1>GST Compliance System Portal.</h1>
     <p class="hero-sub">Manage sales invoices, automate GST calculations, generate return summaries, and track compliance deadlines. Streamline your tax workflow from a single, unified interface.</p>
     <div class="hero-actions">
-      <a href="/login#signup" class="btn btn-primary btn-lg">Create Account</a>
+      <a href="#" class="btn btn-primary btn-lg" onclick="showSignupScreen()">Create Account</a>
       <a href="#how" class="btn btn-outline btn-lg">View Details</a>
     </div>
 
@@ -1081,8 +1081,32 @@
     window.__showLanding = function () {
       appEl.style.display     = 'none';
       landingEl.style.display = 'block';
-      // Scroll to top
       window.scrollTo(0, 0);
+    };
+
+    // Show login screen inline (called from landing nav Login button)
+    window.showLoginScreen = function () {
+      landingEl.style.display = 'none';
+      appEl.style.display     = 'block';
+      // Make sure auth screen is visible, app div hidden
+      var authScreen = document.getElementById('auth-screen');
+      var appDiv     = document.getElementById('app');
+      if (authScreen) authScreen.style.display = 'flex';
+      if (appDiv)     appDiv.classList.remove('visible');
+      // Show login card
+      ['login','signup','forgot','reset'].forEach(function(v) {
+        var el = document.getElementById(v + '-card');
+        if (el) el.classList.toggle('hidden', v !== 'login');
+      });
+    };
+
+    // Show signup screen inline (called from landing nav Create Account button)
+    window.showSignupScreen = function () {
+      window.showLoginScreen();
+      ['login','signup','forgot','reset'].forEach(function(v) {
+        var el = document.getElementById(v + '-card');
+        if (el) el.classList.toggle('hidden', v !== 'signup');
+      });
     };
   })();
 </script>
