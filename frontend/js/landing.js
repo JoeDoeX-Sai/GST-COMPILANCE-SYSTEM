@@ -43,17 +43,6 @@ document.querySelectorAll('a[href="index.html#signup"]').forEach(a => {
   });
 });
 
-// ── Login button — ensure navigation works ──
-document.querySelectorAll('a[href="index.html"]').forEach(a => {
-  // Only attach to nav/button login links, not footer or logo links
-  if (a.textContent.trim() === 'Login') {
-    a.addEventListener('click', (e) => {
-      e.preventDefault();
-      window.location.href = 'index.html';
-    });
-  }
-});
-
 // ── Generate mock bar chart ──
 const barsEl = document.getElementById('mock-bars');
 if (barsEl) {
