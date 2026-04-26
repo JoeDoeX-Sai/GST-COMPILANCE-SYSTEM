@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GST Compliance System</title>
   <meta name="description" content="A GST management application to create invoices, calculate GST, track compliance, and manage returns.">
+  <script>
+    // Redirect already logged-in users straight to dashboard
+    if (localStorage.getItem('gst_token')) {
+      window.location.replace('index.html');
+    }
+  </script>
   <link rel="stylesheet" href="css/landing.css">
 
 </head>
