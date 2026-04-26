@@ -20,7 +20,10 @@ const API = {
       localStorage.removeItem('gst_token');
       localStorage.removeItem('gst_biz_id');
       toast('Session expired — please log in again', 'error');
-      setTimeout(() => window.location.replace('landing.html'), 1200);
+      setTimeout(() => {
+        document.getElementById('app').classList.remove('visible');
+        document.getElementById('auth-screen').style.display = 'flex';
+      }, 1200);
       throw new Error('Session expired');
     }
     if (!r.ok && !data.success) throw new Error(data.message || 'Request failed');
@@ -393,10 +396,9 @@ const App = {
     this.user = null;
     this.currentBiz = null;
     this.businesses = [];
-    // Set flag so landing page shows logout toast
-    sessionStorage.setItem('gst_logged_out', '1');
-    // Redirect to landing page
-    window.location.replace('landing.html');
+    // Show auth screen instead of redirecting to landing page
+    this.showAuth();
+    toast('Logged out successfully', 'info');
   }
 };
 
