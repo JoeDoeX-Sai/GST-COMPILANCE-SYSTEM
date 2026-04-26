@@ -222,11 +222,20 @@ const App = {
   },
 
   showAuth() {
-    document.getElementById('auth-screen').style.display = 'flex';
-    document.getElementById('app').classList.remove('visible');
+    // If merged single-page mode, switch to landing section
+    if (typeof window.__showLanding === 'function') {
+      window.__showLanding();
+    } else {
+      document.getElementById('auth-screen').style.display = 'flex';
+      document.getElementById('app').classList.remove('visible');
+    }
   },
 
   showApp() {
+    // If merged single-page mode, switch to app section
+    if (typeof window.__showApp === 'function') {
+      window.__showApp();
+    }
     document.getElementById('auth-screen').style.display = 'none';
     document.getElementById('app').classList.add('visible');
     this.renderSidebar();
@@ -389,16 +398,19 @@ const App = {
   },
 
   async logout() {
-    // Clear all auth data
     localStorage.removeItem('gst_token');
     localStorage.removeItem('gst_biz_id');
     sessionStorage.clear();
     this.user = null;
     this.currentBiz = null;
     this.businesses = [];
-    // Show auth screen instead of redirecting to landing page
-    this.showAuth();
-    toast('Logged out successfully', 'info');
+    sessionStorage.setItem('gst_logged_out', '1');
+    // Switch to landing section (single-page mode)
+    if (typeof window.__showLanding === 'function') {
+      window.__showLanding();
+    } else {
+      window.location.reload();
+    }
   }
 };
 

@@ -34,11 +34,33 @@ document.querySelectorAll('a[href^="#"]').forEach(a => {
   });
 });
 
-// ── Handle #signup hash from nav CTA ──
-document.querySelectorAll('a[href="/index.html#signup"]').forEach(a => {
-  a.addEventListener('click', () => {
-    sessionStorage.setItem('gst_open_signup', '1');
-  });
+// ── Handle Create Account / Login links ──
+// In single-page mode these show the auth section instead of navigating
+document.querySelectorAll('a[href="#signup"], a[href="index.html"]').forEach(a => {
+  if (a.textContent.includes('Create Account') || a.textContent.includes('Signup')) {
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      sessionStorage.setItem('gst_open_signup', '1');
+      // Show app section (which contains the auth screen)
+      if (typeof window.__showApp === 'function') {
+        window.__showApp();
+        if (typeof toggleAuth === 'function') toggleAuth('signup');
+        if (typeof App !== 'undefined') App.init();
+      }
+    });
+  }
+});
+
+document.querySelectorAll('a[href="index.html"]').forEach(a => {
+  if (a.textContent.trim() === 'Login') {
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (typeof window.__showApp === 'function') {
+        window.__showApp();
+        if (typeof App !== 'undefined') App.init();
+      }
+    });
+  }
 });
 
 // ── Generate mock bar chart ──
