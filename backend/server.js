@@ -103,9 +103,9 @@ app.get('/api/backup', auth, (req, res) => {
 
 app.set('io', io);
 
-// Landing page is the entry point
+// Main entry point — index.html contains both landing and app
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/landing.html'));
+  res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
 
 // Serve login/app page
@@ -146,7 +146,7 @@ app.get('/documentation.html', (req, res) => {
 // Catch-all for other routes
 app.get('*', (req, res) => {
   if (!req.path.startsWith('/api')) {
-    res.sendFile(path.join(__dirname, '../frontend/landing.html'));
+    res.sendFile(path.join(__dirname, '../frontend/index.html'));
   }
 });
 
