@@ -393,6 +393,8 @@ const App = {
     this.user = null;
     this.currentBiz = null;
     this.businesses = [];
+    // Set flag so landing page shows logout toast
+    sessionStorage.setItem('gst_logged_out', '1');
     // Redirect to landing page
     window.location.replace('landing.html');
   }

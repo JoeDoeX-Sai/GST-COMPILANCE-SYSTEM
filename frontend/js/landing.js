@@ -1,29 +1,29 @@
 // ── Nav scroll effect ──
 const nav = document.getElementById('nav');
-window.addEventListener('scroll', () => {
-  if (window.scrollY > 40) {
-    nav.classList.add('scrolled');
-  } else {
-    nav.classList.remove('scrolled');
-  }
-});
+if (nav) {
+  window.addEventListener('scroll', () => {
+    nav.classList.toggle('scrolled', window.scrollY > 40);
+  }, { passive: true });
+}
 
 // ── Mobile hamburger ──
 const hamburger = document.getElementById('hamburger');
-const navLinks = document.getElementById('nav-links');
-hamburger.addEventListener('click', () => {
-  navLinks.classList.toggle('open');
-  hamburger.textContent = navLinks.classList.contains('open') ? '✕' : '☰';
-});
-// Close on link click
-navLinks.querySelectorAll('a').forEach(a => {
-  a.addEventListener('click', () => {
-    navLinks.classList.remove('open');
-    hamburger.textContent = '☰';
+const navLinks  = document.getElementById('nav-links');
+if (hamburger && navLinks) {
+  hamburger.addEventListener('click', () => {
+    navLinks.classList.toggle('open');
+    hamburger.textContent = navLinks.classList.contains('open') ? '✕' : '☰';
   });
-});
+  // Close on link click
+  navLinks.querySelectorAll('a').forEach(a => {
+    a.addEventListener('click', () => {
+      navLinks.classList.remove('open');
+      hamburger.textContent = '☰';
+    });
+  });
+}
 
-// ── Smooth scroll for anchor links ──
+// ── Smooth scroll for on-page anchor links only ──
 document.querySelectorAll('a[href^="#"]').forEach(a => {
   a.addEventListener('click', e => {
     const target = document.querySelector(a.getAttribute('href'));
@@ -33,13 +33,25 @@ document.querySelectorAll('a[href^="#"]').forEach(a => {
     }
   });
 });
-// ── Handle #signup hash from nav CTA ──
+
+// ── Handle Create Account links → set flag then navigate to index.html ──
 document.querySelectorAll('a[href="index.html#signup"]').forEach(a => {
   a.addEventListener('click', (e) => {
     e.preventDefault();
     sessionStorage.setItem('gst_open_signup', '1');
     window.location.href = 'index.html';
   });
+});
+
+// ── Login button — ensure navigation works ──
+document.querySelectorAll('a[href="index.html"]').forEach(a => {
+  // Only attach to nav/button login links, not footer or logo links
+  if (a.textContent.trim() === 'Login') {
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      window.location.href = 'index.html';
+    });
+  }
 });
 
 // ── Generate mock bar chart ──
@@ -54,22 +66,13 @@ if (barsEl) {
 // ── Intersection Observer for fade-in animations ──
 const observer = new IntersectionObserver((entries) => {
   entries.forEach(entry => {
-    if (entry.isIntersecting) {
-      entry.target.classList.add('active');
-    }
+    if (entry.isIntersecting) entry.target.classList.add('active');
   });
-}, { threshold: 0.1, rootMargin: "0px 0px -50px 0px" });
+}, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
 
-document.querySelectorAll('.reveal').forEach(el => {
-  observer.observe(el);
-});
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
 
 // ── FAQ Toggles ──
-const faqs = document.querySelectorAll('.faq-item');
-faqs.forEach(faq => {
-  faq.addEventListener('click', () => {
-    // Optional: close other FAQs when one opens
-    // faqs.forEach(other => { if (other !== faq) other.classList.remove('open'); });
-    faq.classList.toggle('open');
-  });
+document.querySelectorAll('.faq-item').forEach(faq => {
+  faq.addEventListener('click', () => faq.classList.toggle('open'));
 });
