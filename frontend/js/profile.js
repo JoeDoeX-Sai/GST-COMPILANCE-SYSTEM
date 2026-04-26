@@ -348,14 +348,202 @@ const ProfilePanel = {
 
   // ── Open ────────────────────────────────────────────────────────────────────
   open() {
-    // Redirect to profile page instead of opening modal
-    Pages.navigate('profile');
+    const panel = document.getElementById('profile-panel');
+    const overlay = document.getElementById('profile-panel-overlay');
+    if (!panel || !overlay) return;
+    
+    panel.classList.add('open');
+    overlay.classList.add('open');
+    this._open = true;
+    
+    // Load profile data
+    this.loadData();
   },
 
   // ── Close ───────────────────────────────────────────────────────────────────
   close() {
-    // Navigate back to dashboard
-    Pages.navigate('dashboard');
+    const panel = document.getElementById('profile-panel');
+    const overlay = document.getElementById('profile-panel-overlay');
+    if (!panel || !overlay) return;
+    
+    panel.classList.remove('open');
+    overlay.classList.remove('open');
+    this._open = false;
+  },
+
+  // ── Load Data ───────────────────────────────────────────────────────────────
+  async loadData() {
+    if (!App.user) return;
+    
+    // Update identity section
+    document.getElementById('pp-name').textContent = App.user.name || '—';
+    document.getElementById('pp-email').textContent = App.user.email || '—';
+    document.getElementById('pp-role-badge').textContent = App.user.role || 'user';
+    document.getElementById('pp-avatar').textContent = (App.user.name || 'U')[0].toUpperCase();
+    
+    // Update profile form fields
+    document.getElementById('pp-field-name').value = App.user.name || '';
+    document.getElementById('pp-field-email').value = App.user.email || '';
+    document.getElementById('pp-field-phone').value = App.user.phone || '';
+    
+    // Load GST info if current business exists
+    if (App.currentBiz) {
+      this.loadGSTInfo();
+    }
+  },
+
+  // ── Load GST Info ───────────────────────────────────────────────────────────
+  async loadGSTInfo() {
+    const container = document.getElementById('pp-gst-content');
+    if (!container) return;
+    
+    try {
+      container.innerHTML = '<div class="spinner"></div>';
+      const biz = App.currentBiz;
+      
+      container.innerHTML = `
+        <div class="form-grid" style="grid-template-columns:1fr">
+          <div class="form-group">
+            <label>Business Name</label>
+            <input type="text" value="${escHtml(biz.name || '')}" disabled>
+          </div>
+          <div class="form-group">
+            <label>GSTIN</label>
+            <input type="text" value="${escHtml(biz.gstin || '')}" disabled>
+          </div>
+          <div class="form-group">
+            <label>State</label>
+            <input type="text" value="${escHtml(biz.state || '')}" disabled>
+          </div>
+          <div class="form-group">
+            <label>Address</label>
+            <textarea disabled rows="3">${escHtml(biz.address || '')}</textarea>
+          </div>
+        </div>
+      `;
+    } catch(e) {
+      container.innerHTML = `<div class="alert alert-danger">Failed to load GST info: ${escHtml(e.message)}</div>`;
+    }
+  },
+
+  // ── Switch Tab ──────────────────────────────────────────────────────────────
+  switchTab(tab) {
+    // Update tab buttons
+    document.querySelectorAll('.pp-tab').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.tab === tab);
+    });
+    
+    // Update tab content
+    document.querySelectorAll('.pp-tab-content').forEach(content => {
+      content.classList.toggle('hidden', content.id !== `pp-tab-${tab}`);
+    });
+    
+    // Load specific tab data
+    if (tab === 'gst' && App.currentBiz) {
+      this.loadGSTInfo();
+    } else if (tab === 'settings') {
+      this.loadSettings();
+    }
+  },
+
+  // ── Load Settings ───────────────────────────────────────────────────────────
+  loadSettings() {
+    const container = document.getElementById('pp-settings-content');
+    if (!container) return;
+    
+    const theme = localStorage.getItem('gst_theme') || 'light';
+    const currency = localStorage.getItem('gst_currency') || 'INR';
+    
+    container.innerHTML = `
+      <div class="form-grid" style="grid-template-columns:1fr">
+        <div class="form-group">
+          <label>Theme</label>
+          <select id="pp-theme-select" class="form-control" onchange="App.setTheme(this.value)">
+            <option value="light" ${theme === 'light' ? 'selected' : ''}>Light</option>
+            <option value="dark" ${theme === 'dark' ? 'selected' : ''}>Dark</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Currency</label>
+          <select id="pp-currency-select" class="form-control" onchange="App.setCurrency(this.value)">
+            <option value="INR" ${currency === 'INR' ? 'selected' : ''}>₹ INR</option>
+            <option value="USD" ${currency === 'USD' ? 'selected' : ''}>$ USD</option>
+            <option value="EUR" ${currency === 'EUR' ? 'selected' : ''}>€ EUR</option>
+          </select>
+        </div>
+      </div>
+    `;
+  },
+
+  // ── Save Profile ────────────────────────────────────────────────────────────
+  async saveProfile() {
+    const name = document.getElementById('pp-field-name').value.trim();
+    const phone = document.getElementById('pp-field-phone').value.trim();
+    const btn = document.getElementById('pp-save-profile-btn');
+    const msg = document.getElementById('pp-profile-msg');
+    
+    if (!name) {
+      msg.innerHTML = '<div class="alert alert-danger">Name is required</div>';
+      return;
+    }
+    
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner" style="width:16px;height:16px"></div> Saving...';
+    
+    try {
+      const res = await API.put('/auth/profile', { name, phone });
+      App.user = res.user;
+      this.loadData();
+      App.updateUI();
+      msg.innerHTML = '<div class="alert alert-success">Profile updated successfully</div>';
+      setTimeout(() => msg.innerHTML = '', 3000);
+    } catch(e) {
+      msg.innerHTML = `<div class="alert alert-danger">${escHtml(e.message)}</div>`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Save Changes';
+    }
+  },
+
+  // ── Change Password ─────────────────────────────────────────────────────────
+  async changePassword() {
+    const current = document.getElementById('pp-cur-pw').value;
+    const newPw = document.getElementById('pp-new-pw').value;
+    const confirm = document.getElementById('pp-conf-pw').value;
+    const btn = document.getElementById('pp-save-pw-btn');
+    const msg = document.getElementById('pp-password-msg');
+    
+    if (!current || !newPw || !confirm) {
+      msg.innerHTML = '<div class="alert alert-danger">All fields are required</div>';
+      return;
+    }
+    
+    if (newPw !== confirm) {
+      msg.innerHTML = '<div class="alert alert-danger">New passwords do not match</div>';
+      return;
+    }
+    
+    if (newPw.length < 6) {
+      msg.innerHTML = '<div class="alert alert-danger">Password must be at least 6 characters</div>';
+      return;
+    }
+    
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner" style="width:16px;height:16px"></div> Updating...';
+    
+    try {
+      await API.put('/auth/change-password', { currentPassword: current, newPassword: newPw });
+      msg.innerHTML = '<div class="alert alert-success">Password updated successfully</div>';
+      document.getElementById('pp-cur-pw').value = '';
+      document.getElementById('pp-new-pw').value = '';
+      document.getElementById('pp-conf-pw').value = '';
+      setTimeout(() => msg.innerHTML = '', 3000);
+    } catch(e) {
+      msg.innerHTML = `<div class="alert alert-danger">${escHtml(e.message)}</div>`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Update Password';
+    }
   },
 
   // ── Chatbot visibility helper ────────────────────────────────────────────────
@@ -369,12 +557,9 @@ const ProfilePanel = {
     if (admin) admin.style.display = v;
   },
 
-  // Legacy methods - redirect to profile page
-  switchTab(tab) {
-    Pages.navigate('profile');
-  },
-
+  // ── Go to page ──────────────────────────────────────────────────────────────
   go(page) {
+    this.close();
     Pages.navigate(page);
   },
 

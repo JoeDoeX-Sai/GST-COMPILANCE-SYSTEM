@@ -300,17 +300,15 @@ Pages._contactAdmin = function() {
 // ─── PROFILE PAGE ─────────────────────────────────────────────────────────────
 Pages.register('profile', async () => {
   try {
-    const res = await fetch('/html/profile.html');
-    const html = await res.text();
-    document.getElementById('page-content').innerHTML = html;
-    
-    // Load profile data
-    await ProfilePage.load();
-    
-    // Initialize with profile tab active
-    ProfilePage.switchTab('profile');
+    // Open the profile panel
+    if (typeof ProfilePanel !== 'undefined' && ProfilePanel.open) {
+      ProfilePanel.open();
+    } else {
+      throw new Error('Profile panel not available');
+    }
   } catch(e) {
-    document.getElementById('page-content').innerHTML = `<div class="alert alert-danger">Failed to load profile page: ${escHtml(e.message)}</div>`;
+    console.error('Profile error:', e);
+    toast('Failed to open profile: ' + e.message, 'error');
   }
 });
 
