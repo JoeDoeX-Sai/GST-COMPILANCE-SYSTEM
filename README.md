@@ -1,313 +1,661 @@
-# GST Compliance System
+# GST Compliance & Transaction Management System
 
-A comprehensive GST (Goods and Services Tax) compliance and transaction management system built with Node.js, Express, MongoDB, and vanilla JavaScript.
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Node.js Version](https://img.shields.io/badge/node-%3E%3D14.0.0-brightgreen)](https://nodejs.org/)
+[![MongoDB](https://img.shields.io/badge/MongoDB-%3E%3D4.4-green)](https://www.mongodb.com/)
 
-## Features
+A comprehensive, enterprise-grade GST (Goods and Services Tax) compliance and transaction management system designed for Indian businesses. Built with modern web technologies to streamline GST filing, invoice management, and compliance tracking.
+
+## 🌟 Overview
+
+The GST Compliance System is a full-stack web application that helps businesses manage their GST obligations efficiently. It provides end-to-end functionality for invoice generation, GST return preparation, compliance tracking, and financial analytics—all in one integrated platform.
+
+## ✨ Key Features
 
 ### Core Functionality
-- **Authentication & Authorization**: JWT-based authentication with role-based access control (Admin, Accountant, Viewer)
-- **Business Management**: Multi-business support with user assignment
-- **Invoice Management**: Sales and purchase invoice tracking with GST calculations
-- **GST Returns**: Automated GST return preparation and filing
-- **Compliance Calendar**: Track filing deadlines and compliance requirements
-- **Reconciliation**: Match invoices with GST portal data
-- **Analytics Dashboard**: Visual insights into GST data and trends
-- **Party Management**: Customer and vendor database
-- **HSN/SAC Lookup**: Product and service classification codes
 
-### Additional Features
-- **Real-time Chat**: User-to-admin messaging system with Socket.io
-- **AI Chatbot**: Intelligent assistant for GST queries (user mode only)
-- **Profile Management**: Full dashboard-style profile page with settings
-- **Audit Trail**: Complete activity logging for compliance
-- **Multi-currency Support**: INR, USD, EUR
-- **Theme Support**: Light and dark mode
-- **Responsive Design**: Mobile-friendly interface
-- **Email Notifications**: Automated alerts and reminders
+#### 📊 **Dashboard & Analytics**
+- Real-time business insights and KPI tracking
+- Visual charts for sales trends, tax analysis, and revenue metrics
+- Monthly and yearly financial summaries
+- Top customer analysis and supply type breakdowns
+- Compliance calendar with upcoming deadlines
 
-## Tech Stack
+#### 🧾 **Invoice Management**
+- Create, edit, and manage sales invoices (B2B, B2C, B2G)
+- Automatic GST calculation (CGST, SGST, IGST)
+- Support for intra-state and inter-state supplies
+- Invoice confirmation with IRN (Invoice Reference Number) generation
+- PDF export with professional formatting
+- Excel export for bulk data analysis
+- Multi-item invoices with HSN/SAC codes
+- Discount and cess support
+- TDS/TCS integration
+
+#### 💼 **Purchase Management**
+- Record and track purchase invoices
+- ITC (Input Tax Credit) eligibility tracking
+- GSTR-2A/2B reconciliation support
+- Supplier invoice matching
+- Payment status tracking
+
+#### 📋 **GST Returns**
+- Automated GSTR-1 preparation (outward supplies)
+- Automated GSTR-3B preparation (summary return)
+- GSTR-9 (annual return) support
+- Period-wise return generation
+- Filing status tracking with ARN
+- JSON export for GST portal upload
+
+#### 👥 **Party Management**
+- Comprehensive customer and vendor database
+- GSTIN validation and verification
+- PAN extraction from GSTIN
+- State code identification
+- Contact information management
+- Party type classification (customer/supplier/both)
+
+#### 🔍 **HSN/SAC Lookup**
+- Built-in HSN (Harmonized System of Nomenclature) code database
+- SAC (Services Accounting Code) support
+- Quick search functionality
+- GST rate suggestions based on HSN/SAC
+- Cess rate information
+
+#### 📅 **Compliance Calendar**
+- Automatic deadline tracking for all GST returns
+- Overdue filing alerts
+- Upcoming compliance notifications
+- Period-wise compliance status
+- Email and browser notifications
+
+#### 💰 **TDS/TCS Management**
+- TDS (Tax Deducted at Source) entry and tracking
+- TCS (Tax Collected at Source) management
+- Section-wise categorization
+- Period-wise summaries
+- Base amount and rate calculations
+
+#### 🔄 **Reconciliation**
+- Match purchase invoices with GSTR-2A/2B data
+- Identify mismatches and missing entries
+- ITC reconciliation reports
+- Supplier-wise reconciliation
+
+#### 📤 **Export & Reports**
+- PDF invoice generation with company branding
+- Excel export for invoices, purchases, and returns
+- Dashboard summary reports
+- Custom date range reports
+- Multi-format support (PDF, Excel)
+
+### Advanced Features
+
+#### 🔐 **Authentication & Security**
+- JWT-based authentication with 30-minute token expiry
+- Role-based access control (RBAC)
+  - **Admin**: Full system access, user management, business creation
+  - **Accountant**: Invoice and return management, analytics access
+  - **Viewer**: Read-only access to reports and data
+- Password encryption with bcrypt
+- OAuth 2.0 integration (Google, Facebook, GitHub)
+- Email verification for new accounts
+- Password reset functionality
+- Session management and automatic logout
+
+#### 🏢 **Multi-Business Support**
+- Manage multiple GSTINs from a single account
+- Business-level data isolation
+- User-to-business assignment by admins
+- Quick business switching for accountants
+- Business access request workflow
+
+#### 💬 **Real-Time Chat System**
+- User-to-admin messaging with Socket.IO
+- AI-powered chatbot for GST queries (Groq LLM integration)
+- Unread message badges
+- Typing indicators
+- Message history
+- Admin dashboard for managing conversations
+- Automatic bot responses when admin is offline
+
+#### 🎫 **Support Ticket System**
+- Create and track support tickets
+- Priority levels (low, medium, high)
+- Status tracking (open, in progress, resolved, closed)
+- Admin reply system
+- Ticket history and conversation threads
+- Public contact form for non-registered users
+
+#### 📊 **Business Request Management**
+- Users can request access to businesses
+- Admin approval workflow
+- Request status tracking (pending, approved, rejected)
+- Admin notes and comments
+- Real-time notifications for new requests
+
+#### 🎨 **User Experience**
+- Modern, responsive UI design
+- Light and dark theme support
+- Mobile-friendly interface
+- Intuitive navigation with sidebar and topbar
+- Real-time notifications
+- Toast messages for user feedback
+- Loading states and error handling
+
+#### 👤 **Profile Management**
+- Comprehensive user profile dashboard
+- Personal information editing
+- Password change functionality
+- Business assignment view
+- Theme and currency preferences
+- Account settings
+- Logout functionality
+
+#### 🔍 **Audit Trail**
+- Complete activity logging
+- User action tracking
+- Entity-level change history
+- IP address logging
+- Timestamp tracking
+- Admin audit reports
+
+#### 🌐 **Multi-Currency Support**
+- INR (Indian Rupee)
+- USD (US Dollar)
+- EUR (Euro)
+- Real-time currency conversion
+- User-specific currency preferences
+
+#### 📧 **Email Notifications**
+- Account verification emails
+- Password reset emails
+- Compliance deadline reminders
+- System notifications
+- Gmail integration with app passwords
+
+#### 📖 **API Documentation**
+- Interactive Swagger UI documentation
+- Complete API endpoint reference
+- Request/response examples
+- Authentication details
+- Available at `/api-docs`
+
+## 🛠️ Technology Stack
 
 ### Backend
-- **Runtime**: Node.js
+- **Runtime**: Node.js (v14+)
 - **Framework**: Express.js
-- **Database**: MongoDB with Mongoose
-- **Authentication**: JWT (JSON Web Tokens)
-- **Real-time**: Socket.io
+- **Database**: MongoDB with Mongoose ODM
+- **Authentication**: JWT (JSON Web Tokens), Passport.js
+- **Real-Time**: Socket.IO
 - **Security**: Helmet, bcrypt, express-rate-limit
 - **Validation**: express-validator
 - **Email**: Nodemailer
 - **PDF Generation**: PDFKit
 - **Excel Export**: ExcelJS
-- **AI Integration**: Groq SDK
+- **AI Integration**: Groq SDK (LLaMA 3)
+- **Logging**: Winston with daily log rotation
+- **Scheduling**: node-cron
+- **API Documentation**: Swagger (swagger-jsdoc, swagger-ui-express)
 
 ### Frontend
 - **Core**: Vanilla JavaScript (ES6+)
-- **Styling**: Custom CSS with CSS variables
+- **Architecture**: Single Page Application (SPA) with hash routing
+- **Styling**: Custom CSS with CSS variables for theming
 - **Charts**: Chart.js
-- **Real-time**: Socket.io client
-- **Architecture**: SPA (Single Page Application) with hash routing
+- **Real-Time**: Socket.IO client
+- **HTTP Client**: Fetch API
+- **State Management**: Custom application state
 
-## Installation
+### Development Tools
+- **Testing**: Jest, Supertest
+- **Development Server**: Nodemon
+- **Version Control**: Git
+- **Package Manager**: npm
 
-### Prerequisites
-- Node.js (v14 or higher)
-- MongoDB (v4.4 or higher)
-- npm or yarn
+## 📋 Prerequisites
 
-### Setup
+Before installation, ensure you have the following installed:
 
-1. **Clone the repository**
+- **Node.js** (v14.0.0 or higher) - [Download](https://nodejs.org/)
+- **MongoDB** (v4.4 or higher) - [Download](https://www.mongodb.com/try/download/community)
+- **Git** - [Download](https://git-scm.com/downloads)
+- **npm** (comes with Node.js)
+
+## 🚀 Installation
+
+### 1. Clone the Repository
+
 ```bash
-git clone <repository-url>
-cd gst-compliance-system
+git clone https://github.com/codewithsaiteja/GST-COMPLIANCE-SYSTEM.git
+cd GST-COMPLIANCE-SYSTEM
 ```
 
-2. **Install dependencies**
+### 2. Install Dependencies
+
 ```bash
 npm install
 ```
 
-3. **Configure environment variables**
+### 3. Environment Configuration
+
+Create a `.env` file in the root directory:
+
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` file:
-```env
-PORT=3000
-JWT_SECRET=your_jwt_secret_here
-JWT_EXPIRES_IN=30m
-NODE_ENV=development
-BCRYPT_ROUNDS=10
-SESSION_SECRET=your_session_secret_here
+Edit the `.env` file with your configuration:
 
-# MongoDB
+```env
+# Server Configuration
+PORT=3000
+NODE_ENV=development
+
+# JWT Configuration
+JWT_SECRET=your_strong_jwt_secret_here_min_32_characters
+JWT_EXPIRES_IN=30m
+
+# Session Configuration
+SESSION_SECRET=your_strong_session_secret_here
+
+# Database Configuration
 MONGO_URI=mongodb://127.0.0.1:27017/gst_system
 
-# Email (Gmail App Password)
+# Email Configuration (Gmail)
 EMAIL_SERVICE=gmail
 EMAIL_USER=your_email@gmail.com
-EMAIL_PASS=your_app_password
+EMAIL_PASS=your_gmail_app_password
 APP_URL=http://localhost:3000
+
+# Security
+BCRYPT_ROUNDS=10
+
+# AI Configuration (Optional - for chatbot)
+GROQ_API_KEY=your_groq_api_key_here
+
+# OAuth Configuration (Optional)
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+FACEBOOK_APP_ID=your_facebook_app_id
+FACEBOOK_APP_SECRET=your_facebook_app_secret
+GITHUB_CLIENT_ID=your_github_client_id
+GITHUB_CLIENT_SECRET=your_github_client_secret
 ```
 
-4. **Start MongoDB**
-```bash
-# Windows
-net start MongoDB
+#### Gmail App Password Setup
 
-# macOS/Linux
+1. Enable 2-Factor Authentication on your Google account
+2. Go to [Google App Passwords](https://myaccount.google.com/apppasswords)
+3. Generate a new app password for "Mail"
+4. Use this 16-character password in `EMAIL_PASS`
+
+#### Groq API Key (Optional)
+
+1. Sign up at [Groq Console](https://console.groq.com/)
+2. Generate an API key
+3. Add it to `GROQ_API_KEY` for AI chatbot functionality
+
+### 4. Start MongoDB
+
+**Windows:**
+```bash
+net start MongoDB
+```
+
+**macOS/Linux:**
+```bash
 sudo systemctl start mongod
 ```
 
-5. **Run the application**
-```bash
-# Development mode (with nodemon)
-npm run dev
+**Or use MongoDB Compass** to start a local instance.
 
-# Production mode
+### 5. Run the Application
+
+**Development Mode** (with auto-restart):
+```bash
+npm run dev
+```
+
+**Production Mode**:
+```bash
 npm start
 ```
 
-6. **Access the application**
+### 6. Access the Application
+
+Open your browser and navigate to:
 ```
 http://localhost:3000
 ```
 
-## Default Credentials
+## 🔑 Default Credentials
 
-**Admin Account**:
-- Email: `admin@gst.local`
-- Password: `Admin@123`
+**Administrator Account:**
+- **Email**: `admin@gst.local`
+- **Password**: `Admin@123`
 
-## Project Structure
+**Important**: Change the default password immediately after first login.
+
+## 📁 Project Structure
 
 ```
 gst-compliance-system/
 ├── backend/
 │   ├── middleware/
-│   │   ├── auth.js          # Authentication & RBAC middleware
-│   │   └── validate.js      # Request validation
+│   │   ├── auth.js              # Authentication & RBAC middleware
+│   │   └── validate.js          # Request validation middleware
 │   ├── models/
-│   │   ├── Chat.js          # Chat models (Conversation, Message)
-│   │   ├── Ticket.js        # Support ticket model
-│   │   └── ...              # Other models
+│   │   ├── BusinessRequest.js   # Business access request model
+│   │   ├── Chat.js              # Chat message model
+│   │   ├── Conversation.js      # Conversation model
+│   │   ├── Message.js           # Message model
+│   │   └── Ticket.js            # Support ticket model
 │   ├── routes/
-│   │   ├── auth.js          # Authentication routes
-│   │   ├── businesses.js    # Business management
-│   │   ├── chat.js          # Chat system
-│   │   ├── invoices.js      # Invoice management
-│   │   ├── returns.js       # GST returns
-│   │   └── ...              # Other routes
+│   │   ├── analytics.js         # Analytics & dashboard endpoints
+│   │   ├── audit.js             # Audit trail endpoints
+│   │   ├── auth.js              # Authentication endpoints
+│   │   ├── business-requests.js # Business request endpoints
+│   │   ├── businesses.js        # Business management endpoints
+│   │   ├── chat.js              # Chat system endpoints
+│   │   ├── compliance.js        # Compliance calendar endpoints
+│   │   ├── export.js            # PDF/Excel export endpoints
+│   │   ├── hsn.js               # HSN/SAC lookup endpoints
+│   │   ├── invoices.js          # Invoice management endpoints
+│   │   ├── parties.js           # Party management endpoints
+│   │   ├── payments.js          # Payment tracking endpoints
+│   │   ├── purchases.js         # Purchase management endpoints
+│   │   ├── reconcile.js         # Reconciliation endpoints
+│   │   ├── returns.js           # GST returns endpoints
+│   │   ├── tds.js               # TDS/TCS endpoints
+│   │   ├── tickets.js           # Support ticket endpoints
+│   │   └── users.js             # User management endpoints
 │   ├── utils/
-│   │   ├── ai.js            # AI chatbot integration
-│   │   ├── compliance.js    # Compliance calculations
-│   │   ├── db.js            # Database connection & models
-│   │   ├── gst.js           # GST calculations
-│   │   ├── mailer.js        # Email service
-│   │   └── passport.js      # OAuth strategies
-│   └── server.js            # Main server file
+│   │   ├── ai.js                # AI chatbot integration (Groq)
+│   │   ├── compliance.js        # Compliance calculations
+│   │   ├── db.js                # Database connection & models
+│   │   ├── gst.js               # GST calculation utilities
+│   │   ├── logger.js            # Winston logger configuration
+│   │   ├── mailer.js            # Email service
+│   │   ├── passport.js          # OAuth strategies
+│   │   ├── seedData.js          # Database seeding
+│   │   ├── swagger.js           # API documentation config
+│   │   └── validateEnv.js       # Environment validation
+│   ├── server.js                # Main server file
+│   └── users.json               # User data backup
 ├── frontend/
-│   ├── css/
-│   │   ├── style.css        # Main styles
-│   │   ├── chat-new.css     # Chat system styles
-│   │   └── profile.css      # Profile page styles
-│   ├── html/
-│   │   ├── index.html       # Main SPA container
-│   │   ├── profile.html     # Profile page template
-│   │   └── ...              # Other page templates
-│   └── js/
-│       ├── app.js           # Core application logic
-│       ├── pages.js         # Page routing
-│       ├── profile.js       # Profile page logic
-│       ├── chat-new.js      # Chat system
-│       ├── invoices.js      # Invoice management
-│       └── ...              # Other page scripts
-├── data/
-│   └── gst_system.db        # SQLite backup (optional)
-├── .env                     # Environment variables (not in git)
-├── .env.example             # Environment template
-├── .gitignore               # Git ignore rules
-├── package.json             # Dependencies
-└── README.md                # This file
+│   └── html/
+│       ├── contact.html         # Contact page
+│       ├── demo-3d.html         # 3D demo page
+│       ├── documentation.html   # Documentation page
+│       ├── index.html           # Main application (SPA)
+│       ├── landing.html         # Landing page
+│       ├── privacy.html         # Privacy policy
+│       ├── profile.html         # Profile page template
+│       ├── support.html         # Support page
+│       └── terms.html           # Terms of service
+├── css/
+│   ├── chat-new.css             # Chat system styles
+│   ├── chat.css                 # Legacy chat styles
+│   ├── landing.css              # Landing page styles
+│   ├── profile.css              # Profile page styles
+│   └── style.css                # Main application styles
+├── js/
+│   ├── admin-pages.js           # Admin-specific pages
+│   ├── app.js                   # Core application logic
+│   ├── business-requests.js     # Business request UI
+│   ├── chat-new.js              # Chat system UI
+│   ├── chat.js                  # Legacy chat UI
+│   ├── extra-pages.js           # Additional pages
+│   ├── invoices.js              # Invoice management UI
+│   ├── landing.js               # Landing page logic
+│   ├── more-pages.js            # More page handlers
+│   ├── pages.js                 # Page routing
+│   ├── payments-page.js         # Payment tracking UI
+│   └── profile.js               # Profile page logic
+├── logs/                        # Application logs (auto-generated)
+├── tests/
+│   ├── auth.test.js             # Authentication tests
+│   └── invoices.test.js         # Invoice tests
+├── .env                         # Environment variables (create from .env.example)
+├── .env.example                 # Environment template
+├── .gitignore                   # Git ignore rules
+├── .npmrc                       # npm configuration
+├── package.json                 # Dependencies & scripts
+├── package-lock.json            # Dependency lock file
+└── README.md                    # This file
 ```
 
-## Key Features Explained
-
-### Role-Based Access Control (RBAC)
-
-**Admin**:
-- Full system access
-- Create and manage businesses
-- Assign users to businesses
-- Access audit trail
-- Manage all users
-- View all data
-
-**Accountant**:
-- Access assigned businesses
-- Create and manage invoices
-- Prepare GST returns
-- View analytics
-- Limited settings access
-
-**Viewer**:
-- Read-only access
-- View reports and analytics
-- No data modification
-
-### Profile Page
-
-Full dashboard-style profile page with:
-- **Profile Tab**: Update personal information
-- **Password Tab**: Change password with validation
-- **GST Tab**: View and switch between assigned businesses
-- **Settings Tab**: Theme, currency, account info, logout
-
-### Chat System
-
-- **User Mode**: Chat with admin support, AI chatbot assistance
-- **Admin Mode**: View all conversations, respond to users, manage tickets
-- **Real-time**: Instant message delivery with Socket.io
-- **Unread Badges**: Track unread messages
-
-### Security Features
-
-- JWT authentication with 30-minute expiration
-- Password hashing with bcrypt
-- Rate limiting on API endpoints
-- Helmet.js security headers
-- Input validation and sanitization
-- Business-level access control
-- Audit logging for all actions
-
-## API Endpoints
+## 🔌 API Endpoints
 
 ### Authentication
+- `POST /api/auth/register` - Register new user
 - `POST /api/auth/login` - User login
-- `POST /api/auth/register` - User registration
 - `POST /api/auth/logout` - User logout
 - `GET /api/auth/me` - Get current user
 - `GET /api/auth/profile` - Get user profile
 - `PUT /api/auth/profile` - Update profile
 - `POST /api/auth/change-password` - Change password
+- `POST /api/auth/forgot-password` - Request password reset
+- `POST /api/auth/reset-password` - Reset password
+- `POST /api/auth/verify-email` - Verify email
+- `GET /api/auth/google` - Google OAuth
+- `GET /api/auth/facebook` - Facebook OAuth
+- `GET /api/auth/github` - GitHub OAuth
 
 ### Businesses
 - `GET /api/businesses` - List businesses (admin)
 - `POST /api/businesses` - Create business (admin)
+- `GET /api/businesses/:id` - Get business details
 - `PUT /api/businesses/:id` - Update business (admin)
 - `DELETE /api/businesses/:id` - Delete business (admin)
+
+### Business Requests
+- `POST /api/business-requests/request` - Request business access
+- `GET /api/business-requests/my-requests` - Get user's requests
+- `GET /api/business-requests/pending-status` - Check pending status
+- `GET /api/business-requests/all` - Get all requests (admin)
+- `POST /api/business-requests/approve/:id` - Approve request (admin)
+- `POST /api/business-requests/reject/:id` - Reject request (admin)
+- `GET /api/business-requests/stats` - Get request statistics (admin)
 
 ### Invoices
 - `GET /api/invoices` - List invoices
 - `POST /api/invoices` - Create invoice
+- `GET /api/invoices/:id` - Get invoice details
 - `PUT /api/invoices/:id` - Update invoice
 - `DELETE /api/invoices/:id` - Delete invoice
+- `PATCH /api/invoices/:id/confirm` - Confirm invoice
+- `PATCH /api/invoices/:id/cancel` - Cancel invoice
+
+### Purchases
+- `GET /api/purchases` - List purchases
+- `POST /api/purchases` - Create purchase
+- `PUT /api/purchases/:id` - Update purchase
+- `DELETE /api/purchases/:id` - Delete purchase
+
+### Parties
+- `GET /api/parties` - List parties
+- `POST /api/parties` - Create party
+- `GET /api/parties/:id` - Get party details
+- `PUT /api/parties/:id` - Update party
+- `DELETE /api/parties/:id` - Delete party
+- `GET /api/parties/validate/:gstin` - Validate GSTIN
+
+### GST Returns
+- `GET /api/returns` - List returns
+- `POST /api/returns/prepare` - Prepare return
+- `PATCH /api/returns/:id/file` - File return
+
+### Compliance
+- `GET /api/compliance` - List compliance items
+- `PATCH /api/compliance/:id/filed` - Mark as filed
+
+### HSN/SAC
+- `GET /api/hsn` - Search HSN/SAC codes
+- `GET /api/hsn/rate/:code` - Get GST rate for code
+
+### TDS/TCS
+- `GET /api/tds` - List TDS/TCS entries
+- `POST /api/tds` - Create TDS/TCS entry
+- `GET /api/tds/summary` - Get TDS/TCS summary
+- `DELETE /api/tds/:id` - Delete entry
+
+### Analytics
+- `GET /api/analytics/dashboard` - Dashboard data
+- `GET /api/analytics/tax-trend` - Tax trend analysis
+- `GET /api/analytics/itc-summary` - ITC summary
+
+### Export
+- `GET /api/export/invoice/:id/pdf` - Export invoice as PDF
+- `GET /api/export/invoices/excel` - Export invoices as Excel
+- `GET /api/export/dashboard-report` - Export dashboard report
 
 ### Chat
+- `GET /api/chat/rooms` - Get all chat rooms (admin)
+- `GET /api/chat/:room` - Get chat history
 - `POST /api/chat/send` - Send message
 - `GET /api/chat/conversations` - Get conversations
 - `GET /api/chat/messages/:id` - Get messages
 
-### Analytics
-- `GET /api/analytics/dashboard` - Dashboard data
-- `GET /api/analytics/trends` - Trend analysis
+### Tickets
+- `POST /api/tickets/contact` - Public contact form
+- `POST /api/tickets` - Create ticket
+- `GET /api/tickets` - Get all tickets (admin)
+- `GET /api/tickets/my` - Get user's tickets
+- `GET /api/tickets/:id` - Get ticket details
+- `PATCH /api/tickets/:id/status` - Update ticket status (admin)
+- `POST /api/tickets/:id/reply` - Reply to ticket (admin)
 
-## Development
+### Users (Admin)
+- `GET /api/users` - List users
+- `POST /api/users` - Create user
+- `PUT /api/users/:id` - Update user
+- `DELETE /api/users/:id` - Delete user
 
-### Running in Development Mode
+### Audit (Admin)
+- `GET /api/audit` - Get audit logs
+
+### API Documentation
+- `GET /api-docs` - Interactive Swagger UI
+
+## 🧪 Testing
+
+Run the test suite:
+
 ```bash
-npm run dev
+npm test
 ```
 
-This uses nodemon for automatic server restart on file changes.
+Run specific test file:
 
-### Database Seeding
+```bash
+npm test -- tests/auth.test.js
+```
 
-The system automatically creates an admin user on first run:
-- Email: admin@gst.local
-- Password: Admin@123
+## 🔒 Security Features
 
-### Testing
+- **JWT Authentication**: Secure token-based authentication with 30-minute expiry
+- **Password Hashing**: bcrypt with 10 rounds
+- **Rate Limiting**: 500 requests per 15 minutes per IP
+- **Helmet.js**: Security headers
+- **Input Validation**: express-validator for all inputs
+- **XSS Protection**: HTML escaping for user inputs
+- **CORS**: Configured for secure cross-origin requests
+- **Business-Level Access Control**: Users can only access assigned businesses
+- **Audit Logging**: Complete activity tracking
+- **Environment Validation**: Required variables checked on startup
 
-Manual testing checklist:
-1. Authentication (login, logout, session expiry)
-2. RBAC (admin vs user access)
-3. Business assignment flow
-4. Invoice creation and GST calculation
-5. Chat system (user-admin messaging)
-6. Profile page (all tabs)
-7. Settings (theme, currency)
+## 🎨 Themes
 
-## Deployment
+The application supports two themes:
+- **Light Mode**: Clean, professional light theme
+- **Dark Mode**: Eye-friendly dark theme
+
+Users can switch themes from the profile settings or topbar.
+
+## 💱 Currency Support
+
+Supported currencies:
+- **INR** (Indian Rupee) - Default
+- **USD** (US Dollar)
+- **EUR** (Euro)
+
+Currency preference is saved per user and persists across sessions.
+
+## 📊 Database Schema
+
+### Collections
+
+- **users**: User accounts and authentication
+- **businesses**: Business/GSTIN registrations
+- **userbusinesses**: User-to-business assignments
+- **parties**: Customers and suppliers
+- **invoices**: Sales invoices
+- **invoiceitems**: Invoice line items
+- **purchases**: Purchase invoices
+- **returns**: GST returns (GSTR-1, GSTR-3B, GSTR-9)
+- **hsns**: HSN/SAC code master data
+- **compliances**: Compliance calendar entries
+- **auditlogs**: Activity audit trail
+- **tdstcs**: TDS/TCS entries
+- **chats**: Chat messages
+- **conversations**: Chat conversations
+- **messages**: Conversation messages
+- **tickets**: Support tickets
+- **businessrequests**: Business access requests
+
+## 🚀 Deployment
 
 ### Production Checklist
 
 1. **Environment Variables**
-   - Set strong JWT_SECRET
-   - Configure production MongoDB URI
-   - Set up email service
-   - Update APP_URL
+   - Set strong `JWT_SECRET` (min 32 characters)
+   - Set strong `SESSION_SECRET`
+   - Configure production `MONGO_URI`
+   - Set up email service credentials
+   - Update `APP_URL` to production domain
+   - Set `NODE_ENV=production`
 
-2. **Security**
-   - Enable HTTPS
-   - Set NODE_ENV=production
-   - Configure CORS properly
-   - Set up rate limiting
-
-3. **Database**
-   - Set up MongoDB replica set
-   - Configure backups
+2. **Database**
+   - Set up MongoDB replica set for high availability
+   - Configure automated backups
    - Add indexes for performance
+   - Enable authentication
+
+3. **Security**
+   - Enable HTTPS/SSL
+   - Configure firewall rules
+   - Set up rate limiting
+   - Enable CORS for specific domains only
+   - Regular security audits
 
 4. **Monitoring**
-   - Set up error logging
+   - Set up error logging (Winston logs to files)
    - Monitor API performance
    - Track user activity
+   - Set up uptime monitoring
 
-## Troubleshooting
+5. **Performance**
+   - Enable compression (already configured)
+   - Use CDN for static assets
+   - Optimize database queries
+   - Implement caching where appropriate
+
+### Deployment Platforms
+
+The application can be deployed on:
+- **Heroku**: Easy deployment with MongoDB Atlas
+- **AWS**: EC2 + MongoDB Atlas or DocumentDB
+- **DigitalOcean**: Droplet + Managed MongoDB
+- **Azure**: App Service + Cosmos DB
+- **Google Cloud**: App Engine + Cloud MongoDB
+
+## 🐛 Troubleshooting
 
 ### Port Already in Use
+
 ```bash
 # Windows
 netstat -ano | findstr :3000
@@ -318,52 +666,67 @@ lsof -ti:3000 | xargs kill -9
 ```
 
 ### MongoDB Connection Issues
-- Verify MongoDB is running
-- Check MONGO_URI in .env
+
+- Verify MongoDB is running: `mongod --version`
+- Check connection string in `.env`
 - Ensure MongoDB port (27017) is not blocked
+- Check MongoDB logs for errors
+
+### Email Not Sending
+
+- Verify Gmail app password is correct
+- Check 2FA is enabled on Google account
+- Ensure `EMAIL_USER` and `EMAIL_PASS` are set
+- Check spam folder for test emails
 
 ### Session Expiry
-- Tokens expire after 30 minutes
-- Users need to re-login
+
+- Tokens expire after 30 minutes by default
+- Users need to re-login after expiry
 - Consider implementing refresh tokens for better UX
 
-## Contributing
+## 📝 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 👥 Contributing
+
+Contributions are welcome! Please follow these steps:
 
 1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
-## License
+## 📧 Support
 
-This project is proprietary software. All rights reserved.
+For issues, questions, or suggestions:
 
-## Support
+- **Email**: admin@gst.local
+- **GitHub Issues**: [Create an issue](https://github.com/codewithsaiteja/GST-COMPLIANCE-SYSTEM/issues)
+- **Documentation**: Available at `/documentation.html` when running the app
 
-For issues or questions:
-- Create an issue in the repository
-- Contact: admin@gst.local
+## 🙏 Acknowledgments
 
-## Changelog
+- Built with ❤️ for Indian businesses
+- GST rates and HSN codes based on official GST Council notifications
+- Icons and UI inspiration from modern design systems
+- Community feedback and contributions
 
-### Version 2.0.0 (Current)
-- ✅ Full profile dashboard page
-- ✅ Real-time chat system
-- ✅ AI chatbot integration
-- ✅ Settings tab with logout
-- ✅ Token expiration (30 minutes)
-- ✅ Improved RBAC
-- ✅ Responsive design
-- ✅ Theme support (light/dark)
-- ✅ Multi-currency support
+## 📚 Additional Resources
 
-### Version 1.0.0
-- Initial release
-- Basic GST compliance features
-- Invoice management
-- User authentication
+- [GST Official Portal](https://www.gst.gov.in/)
+- [GST Council](https://gstcouncil.gov.in/)
+- [HSN Code Search](https://www.gst.gov.in/help/hsnsac)
+- [MongoDB Documentation](https://docs.mongodb.com/)
+- [Express.js Guide](https://expressjs.com/)
+- [Node.js Best Practices](https://github.com/goldbergyoni/nodebestpractices)
 
 ---
 
-**Built with ❤️ for GST Compliance**
+**Version**: 2.0.0  
+**Last Updated**: April 2026  
+**Maintained by**: Sai Teja
+
+**⭐ If you find this project useful, please consider giving it a star on GitHub!**
