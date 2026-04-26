@@ -1,0 +1,15 @@
+{
+  "outputDirectory": "frontend",
+  "routes": [
+    { "src": "/",                    "dest": "/landing.html" },
+    { "src": "/login",               "dest": "/index.html" },
+    { "src": "/dashboard",           "dest": "/index.html" },
+    { "src": "/landing",             "dest": "/landing.html" },
+    { "src": "/contact",             "dest": "/contact.html" },
+    { "src": "/privacy",             "dest": "/privacy.html" },
+    { "src": "/terms",               "dest": "/terms.html" },
+    { "src": "/support",             "dest": "/support.html" },
+    { "src": "/documentation",       "dest": "/documentation.html" },
+    { "src": "/(.*)",                "dest": "/$1" }
+  ]
+}
