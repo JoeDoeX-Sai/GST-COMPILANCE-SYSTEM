@@ -1,15 +1,15 @@
 {
   "outputDirectory": "frontend",
-  "routes": [
-    { "src": "/",                    "dest": "/landing.html" },
-    { "src": "/login",               "dest": "/index.html" },
-    { "src": "/dashboard",           "dest": "/index.html" },
-    { "src": "/landing",             "dest": "/landing.html" },
-    { "src": "/contact",             "dest": "/contact.html" },
-    { "src": "/privacy",             "dest": "/privacy.html" },
-    { "src": "/terms",               "dest": "/terms.html" },
-    { "src": "/support",             "dest": "/support.html" },
-    { "src": "/documentation",       "dest": "/documentation.html" },
-    { "src": "/(.*)",                "dest": "/$1" }
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/",              "destination": "/landing.html" },
+    { "source": "/login",         "destination": "/index.html" },
+    { "source": "/dashboard",     "destination": "/index.html" },
+    { "source": "/landing",       "destination": "/landing.html" },
+    { "source": "/contact",       "destination": "/contact.html" },
+    { "source": "/privacy",       "destination": "/privacy.html" },
+    { "source": "/terms",         "destination": "/terms.html" },
+    { "source": "/support",       "destination": "/support.html" },
+    { "source": "/documentation", "destination": "/documentation.html" }
   ]
 }
