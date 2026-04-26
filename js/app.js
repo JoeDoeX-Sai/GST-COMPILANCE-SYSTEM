@@ -1,6 +1,6 @@
 // API client
 const API = {
-  base: '/api',
+  base: 'https://gst-compilance-system-backend.onrender.com/api',
   token: () => localStorage.getItem('gst_token'),
   bizId: () => localStorage.getItem('gst_biz_id'),
 

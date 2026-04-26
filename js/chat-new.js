@@ -204,9 +204,7 @@
     const token = localStorage.getItem('gst_token');
     if (!token) return;
 
-    socket = io(window.location.origin, {
-      transports: ['websocket', 'polling'],
-      reconnection: true
+    socket = io('https://gst-compilance-system-backend.onrender.com', {
     });
 
     socket.on('connect', () => {
@@ -279,7 +277,7 @@
   async function loadConversations() {
     try {
       const token = localStorage.getItem('gst_token');
-      const res = await fetch('/api/chat/conversations', {
+      const res = await fetch('https://gst-compilance-system-backend.onrender.com/api/chat/conversations', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -298,7 +296,7 @@
   async function loadUserConversation() {
     try {
       const token = localStorage.getItem('gst_token');
-      const res = await fetch('/api/chat/conversation', {
+      const res = await fetch('https://gst-compilance-system-backend.onrender.com/api/chat/conversation', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -345,7 +343,7 @@
     
     try {
       const token = localStorage.getItem('gst_token');
-      const res = await fetch('/api/chat/send', {
+      const res = await fetch('https://gst-compilance-system-backend.onrender.com/api/chat/send', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

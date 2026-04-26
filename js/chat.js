@@ -302,9 +302,7 @@
      SOCKET.IO
   ═══════════════════════════════════════════════════════════ */
   function connectSocket() {
-    socket = io(window.location.origin, {
-      transports: ['websocket', 'polling'],
-      reconnection: true,
+    socket = io('https://gst-compilance-system-backend.onrender.com', {
       reconnectionDelay: 1500,
       reconnectionAttempts: 10,
     });
@@ -449,7 +447,7 @@
 
     try {
       const token = localStorage.getItem('gst_token');
-      const res   = await fetch('/api/tickets', {
+      const res   = await fetch('https://gst-compilance-system-backend.onrender.com/api/tickets', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
         body: JSON.stringify({ subject, description, priority, chatRoom: currentRoom }),
