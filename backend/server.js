@@ -44,7 +44,6 @@ app.use('/api/', rateLimit({ windowMs: 15*60*1000, max: 500, standardHeaders: tr
 // Serve static assets but disable auto-serving index.html for '/'
 app.use(express.static(path.join(__dirname, '../'), { index: false }));
 app.use(express.static(path.join(__dirname, '../frontend'), { index: false }));
-app.use(express.static(path.join(__dirname, '../frontend/html'), { index: false }));
 
 // Swagger API docs
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, { customSiteTitle: 'GST API Docs' }));
@@ -106,48 +105,48 @@ app.set('io', io);
 
 // Landing page is the entry point
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/html/landing.html'));
+  res.sendFile(path.join(__dirname, '../frontend/landing.html'));
 });
 
 // Serve login/app page
 app.get('/login', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/html/index.html'));
+  res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
 
 // Serve app page
 app.get('/app', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/html/index.html'));
+  res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
 
 // Serve static pages
 app.get('/landing.html', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/html/landing.html'));
+  res.sendFile(path.join(__dirname, '../frontend/landing.html'));
 });
 
 app.get('/contact.html', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/html/contact.html'));
+  res.sendFile(path.join(__dirname, '../frontend/contact.html'));
 });
 
 app.get('/privacy.html', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/html/privacy.html'));
+  res.sendFile(path.join(__dirname, '../frontend/privacy.html'));
 });
 
 app.get('/terms.html', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/html/terms.html'));
+  res.sendFile(path.join(__dirname, '../frontend/terms.html'));
 });
 
 app.get('/support.html', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/html/support.html'));
+  res.sendFile(path.join(__dirname, '../frontend/support.html'));
 });
 
 app.get('/documentation.html', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/html/documentation.html'));
+  res.sendFile(path.join(__dirname, '../frontend/documentation.html'));
 });
 
 // Catch-all for other routes
 app.get('*', (req, res) => {
   if (!req.path.startsWith('/api')) {
-    res.sendFile(path.join(__dirname, '../frontend/html/landing.html'));
+    res.sendFile(path.join(__dirname, '../frontend/landing.html'));
   }
 });
 
