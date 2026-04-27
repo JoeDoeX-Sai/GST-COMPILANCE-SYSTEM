@@ -15,13 +15,17 @@ Pages.register('hsn', async () => {
       </div>
     </div>
   </div>`;
+  // Auto-load all HSNs when opened
+  searchHSN('all');
 });
 
 const searchHSN = debounce(async (q) => {
-  if (!q || q.length < 2) return;
   const type = document.getElementById('hsn-filter')?.value;
   try {
-    const res = await API.get('/hsn', { search: q, type });
+    // If q is 'all', fetch everything (empty search query to backend)
+    const searchQuery = q === 'all' ? ' ' : q; 
+    if (searchQuery.trim().length > 0 && searchQuery.trim().length < 2) return;
+    const res = await API.get('/hsn', { search: searchQuery === ' ' ? 'all' : searchQuery, type });
     const el = document.getElementById('hsn-results');
     if (!res.data?.length) { el.innerHTML = '<div class="empty-state" style="padding:24px"><div class="empty-sub">No results found</div></div>'; return; }
     el.innerHTML = `<table><thead><tr><th>Code</th><th>Type</th><th>Description</th><th class="text-right">GST Rate</th><th class="text-right">CESS</th></tr></thead>
