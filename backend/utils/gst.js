@@ -10,7 +10,7 @@ function calcGST({ taxableValue, gstRate, supplyType, sellerState, buyerState })
 }
 
 function calcInvoiceTotals(items, supplyType, sellerState, buyerState) {
-  let totals = { taxable: 0, cgst: 0, sgst: 0, igst: 0, cess: 0, total: 0 };
+  let totals = { taxable_value: 0, cgst: 0, sgst: 0, igst: 0, cess: 0, total_amount: 0 };
   for (const item of items) {
     const tv = parseFloat(((item.quantity * item.unit_price) * (1 - (item.discount || 0)/100)).toFixed(2));
     const gst = calcGST({ taxableValue: tv, gstRate: item.gst_rate, supplyType, sellerState, buyerState });
@@ -21,11 +21,11 @@ function calcInvoiceTotals(items, supplyType, sellerState, buyerState) {
     item.igst_rate = supplyType === 'inter' ? item.gst_rate : 0;
     item.cgst = gst.cgst; item.sgst = gst.sgst; item.igst = gst.igst; item.cess = cess;
     item.total = parseFloat((tv + gst.cgst + gst.sgst + gst.igst + cess).toFixed(2));
-    totals.taxable += tv; totals.cgst += gst.cgst; totals.sgst += gst.sgst;
+    totals.taxable_value += tv; totals.cgst += gst.cgst; totals.sgst += gst.sgst;
     totals.igst += gst.igst; totals.cess += cess;
   }
-  totals.total = parseFloat((totals.taxable + totals.cgst + totals.sgst + totals.igst + totals.cess).toFixed(2));
-  ['taxable','cgst','sgst','igst','cess'].forEach(k => totals[k] = parseFloat(totals[k].toFixed(2)));
+  totals.total_amount = parseFloat((totals.taxable_value + totals.cgst + totals.sgst + totals.igst + totals.cess).toFixed(2));
+  ['taxable_value','cgst','sgst','igst','cess'].forEach(k => totals[k] = parseFloat(totals[k].toFixed(2)));
   return totals;
 }
 
